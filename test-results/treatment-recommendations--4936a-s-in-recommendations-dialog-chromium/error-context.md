@@ -1,0 +1,220 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: Dashboard
+        - button [ref=e6] [cursor=pointer]:
+          - generic [ref=e7]:
+            - img [ref=e8]
+            - generic [ref=e10]: "3"
+        - button [ref=e11] [cursor=pointer]:
+          - generic [ref=e12]: A
+    - navigation [ref=e13]:
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - img [ref=e17]
+          - generic [ref=e19]: Dental SaaS
+        - separator [ref=e20]
+        - list [ref=e21]:
+          - listitem [ref=e22]:
+            - button [ref=e23] [cursor=pointer]:
+              - img [ref=e25]
+              - generic [ref=e28]: Dashboard
+          - listitem [ref=e29]:
+            - button [ref=e30] [cursor=pointer]:
+              - img [ref=e32]
+              - generic [ref=e35]: Patients
+          - listitem [ref=e36]:
+            - button [ref=e37] [cursor=pointer]:
+              - img [ref=e39]
+              - generic [ref=e42]: Appointments
+          - listitem [ref=e43]:
+            - button [ref=e44] [cursor=pointer]:
+              - img [ref=e46]
+              - generic [ref=e49]: Treatments
+          - listitem [ref=e50]:
+            - button [ref=e51] [cursor=pointer]:
+              - img [ref=e53]
+              - generic [ref=e56]: Insurance Claims
+          - listitem [ref=e57]:
+            - button [ref=e58] [cursor=pointer]:
+              - img [ref=e60]
+              - generic [ref=e63]: Messages
+    - main [ref=e64]:
+      - generic [ref=e65]:
+        - generic [ref=e66]:
+          - generic [ref=e67]:
+            - button [ref=e68] [cursor=pointer]:
+              - img [ref=e70]
+              - text: Back
+            - generic [ref=e72]:
+              - heading [level=4] [ref=e73]: Erol Akarsu
+              - paragraph [ref=e74]: "Patient ID: cmi9hqtl20001h61rdckd3obh"
+          - button [ref=e75] [cursor=pointer]:
+            - img [ref=e77]
+            - text: Edit Patient
+        - generic [ref=e79]:
+          - generic [ref=e82]:
+            - generic [ref=e83]:
+              - img [ref=e84]
+              - heading [level=6] [ref=e86]: Risk Assessment
+            - paragraph [ref=e87]: Assess procedure risk based on patient history
+            - button [ref=e88] [cursor=pointer]: Assess Procedure Risk
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - img [ref=e93]
+              - heading [level=6] [ref=e95]: Treatment Recommendations
+            - paragraph [ref=e96]: Get AI-powered treatment suggestions
+            - button [ref=e97] [cursor=pointer]: Get Recommendations
+          - generic [ref=e100]:
+            - generic [ref=e101]:
+              - img [ref=e102]
+              - heading [level=6] [ref=e104]: Treatment Plan Summary
+            - paragraph [ref=e105]: Generate patient-friendly summary
+            - button [ref=e106] [cursor=pointer]:
+              - img [ref=e108]
+              - text: Generate Summary
+        - generic [ref=e110]:
+          - generic [ref=e113]:
+            - heading [level=6] [ref=e114]: Personal Information
+            - separator [ref=e115]
+            - generic [ref=e116]:
+              - generic [ref=e117]:
+                - text: Full Name
+                - paragraph [ref=e118]: Erol Akarsu
+              - generic [ref=e119]:
+                - text: Phone
+                - paragraph [ref=e120]: "3602221111"
+              - generic [ref=e121]:
+                - text: Email
+                - paragraph [ref=e122]: eakarsu@gmail.com
+              - generic [ref=e123]:
+                - text: Date of Birth
+                - paragraph [ref=e124]: Nov 3, 1993
+              - generic [ref=e125]:
+                - text: Age
+                - paragraph [ref=e126]: 32 years
+              - generic [ref=e127]:
+                - text: Address
+                - paragraph [ref=e128]: 2807 hampton woods
+          - generic [ref=e131]:
+            - heading [level=6] [ref=e132]: Insurance Information
+            - separator [ref=e133]
+            - generic [ref=e134]:
+              - generic [ref=e135]:
+                - text: Insurance Provider
+                - paragraph [ref=e136]: met life
+              - generic [ref=e137]:
+                - text: Policy Number
+                - paragraph [ref=e138]: "2482744"
+          - generic [ref=e141]:
+            - heading [level=6] [ref=e142]: Medical Information
+            - separator [ref=e143]
+            - generic [ref=e144]:
+              - generic [ref=e145]:
+                - text: Medical History
+                - paragraph [ref=e146]: None reported
+              - generic [ref=e147]:
+                - text: Allergies
+                - paragraph [ref=e148]: None reported
+              - generic [ref=e149]:
+                - text: Current Medications
+                - paragraph [ref=e150]: None reported
+          - generic [ref=e153]:
+            - heading [level=6] [ref=e154]: Emergency Contact
+            - separator [ref=e155]
+            - generic [ref=e156]:
+              - generic [ref=e157]:
+                - text: Contact Name
+                - paragraph [ref=e158]: "3602221111"
+              - generic [ref=e159]:
+                - text: Contact Phone
+                - paragraph [ref=e160]: N/A
+          - generic [ref=e163]:
+            - heading [level=6] [ref=e164]: Treatment History
+            - separator [ref=e165]
+            - table [ref=e167]:
+              - rowgroup [ref=e168]:
+                - row [ref=e169]:
+                  - columnheader [ref=e170]: Treatment
+                  - columnheader [ref=e171]: Code
+                  - columnheader [ref=e172]: Tooth
+                  - columnheader [ref=e173]: Status
+                  - columnheader [ref=e174]: Cost
+                  - columnheader [ref=e175]: Date
+              - rowgroup [ref=e176]:
+                - row [ref=e177]:
+                  - cell [ref=e178]: eearwerwe
+                  - cell [ref=e179]: "23233"
+                  - cell [ref=e180]: werwerwe
+                  - cell [ref=e181]:
+                    - generic [ref=e183]: IN_PROGRESS
+                  - cell [ref=e184]: $32423423.00
+                  - cell [ref=e185]: Nov 14, 2025
+          - generic [ref=e188]:
+            - heading [level=6] [ref=e189]: Appointment History
+            - separator [ref=e190]
+            - table [ref=e192]:
+              - rowgroup [ref=e193]:
+                - row [ref=e194]:
+                  - columnheader [ref=e195]: Type
+                  - columnheader [ref=e196]: Status
+                  - columnheader [ref=e197]: Date & Time
+              - rowgroup [ref=e198]:
+                - row [ref=e199]:
+                  - cell [ref=e200]: CHECKUP
+                  - cell [ref=e201]:
+                    - generic [ref=e203]: SCHEDULED
+                  - cell [ref=e204]: Nov 22, 2025, 6:39:49 PM
+                - row [ref=e205]:
+                  - cell [ref=e206]: CHECKUP
+                  - cell [ref=e207]:
+                    - generic [ref=e209]: SCHEDULED
+                  - cell [ref=e210]: Nov 22, 2025, 6:25:30 PM
+                - row [ref=e211]:
+                  - cell [ref=e212]: CHECKUP
+                  - cell [ref=e213]:
+                    - generic [ref=e215]: SCHEDULED
+                  - cell [ref=e216]: Nov 21, 2025, 6:39:26 PM
+                - row [ref=e217]:
+                  - cell [ref=e218]: CHECKUP
+                  - cell [ref=e219]:
+                    - generic [ref=e221]: SCHEDULED
+                  - cell [ref=e222]: Nov 21, 2025, 6:32:19 PM
+    - button [ref=e223] [cursor=pointer]:
+      - img [ref=e224]
+  - button "Open Next.js Dev Tools" [ref=e231] [cursor=pointer]:
+    - img [ref=e232]
+  - alert [ref=e235]
+  - dialog "AI Treatment Recommendations" [ref=e238]:
+    - heading "AI Treatment Recommendations" [level=2] [ref=e239]:
+      - generic [ref=e240]:
+        - img [ref=e241]
+        - heading "AI Treatment Recommendations" [level=6] [ref=e243]
+    - generic [ref=e245]:
+      - generic [ref=e246]:
+        - generic:
+          - text: Diagnosis / Clinical Findings
+          - generic: "*"
+        - generic [ref=e247]:
+          - textbox "Diagnosis / Clinical Findings" [ref=e248]:
+            - /placeholder: "e.g., Deep caries on tooth #14, patient experiencing pain"
+          - group:
+            - generic: Diagnosis / Clinical Findings *
+      - generic [ref=e249]:
+        - generic: Symptoms (comma-separated)
+        - generic [ref=e250]:
+          - textbox "Symptoms (comma-separated)" [ref=e251]:
+            - /placeholder: e.g., Pain, Sensitivity, Swelling
+          - group:
+            - generic: Symptoms (comma-separated)
+    - generic [ref=e252]:
+      - button "Close" [ref=e253] [cursor=pointer]
+      - button "Get Recommendations" [disabled]:
+        - generic:
+          - img
+        - text: Get Recommendations
+```

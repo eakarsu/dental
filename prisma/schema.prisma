@@ -1,0 +1,316 @@
+// Dental Clinic SaaS Platform - Database Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ===== User Management & Authentication =====
+
+enum UserRole {
+  ADMIN
+  RECEPTIONIST
+  HYGIENIST
+  DENTIST
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  firstName     String
+  lastName      String
+  role          UserRole
+  phone         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  appointments  Appointment[]
+  treatments    Treatment[]
+  messages      Message[]
+  reminders     Reminder[]
+  auditLogs     AuditLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+// ===== Patient Management =====
+
+model Patient {
+  id                String    @id @default(cuid())
+  firstName         String
+  lastName          String
+  dateOfBirth       DateTime
+  email             String?
+  phone             String
+  address           String?
+  city              String?
+  state             String?
+  zipCode           String?
+  emergencyContact  String?
+  emergencyPhone    String?
+  medicalHistory    Json?     // Allergies, conditions, medications
+  insuranceProvider String?
+  insurancePolicyNo String?
+  insuranceGroupNo  String?
+  notes             String?   @db.Text
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  appointments      Appointment[]
+  treatments        Treatment[]
+  insuranceClaims   InsuranceClaim[]
+  reminders         Reminder[]
+  documents         Document[]
+
+  @@index([lastName, firstName])
+  @@index([phone])
+  @@index([email])
+}
+
+// ===== Appointment Scheduling =====
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum AppointmentType {
+  CHECKUP
+  CLEANING
+  CONSULTATION
+  FILLING
+  ROOT_CANAL
+  EXTRACTION
+  CROWN
+  BRIDGE
+  IMPLANT
+  ORTHODONTICS
+  EMERGENCY
+  FOLLOW_UP
+}
+
+model Appointment {
+  id          String            @id @default(cuid())
+  patientId   String
+  dentistId   String?
+  type        AppointmentType
+  status      AppointmentStatus @default(SCHEDULED)
+  startTime   DateTime
+  endTime     DateTime
+  reason      String?           @db.Text
+  notes       String?           @db.Text
+  roomNumber  String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  patient     Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  dentist     User?             @relation(fields: [dentistId], references: [id])
+  treatments  Treatment[]
+
+  @@index([patientId])
+  @@index([dentistId])
+  @@index([startTime])
+  @@index([status])
+}
+
+// ===== Treatment Management =====
+
+enum TreatmentStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Treatment {
+  id              String          @id @default(cuid())
+  patientId       String
+  appointmentId   String?
+  dentistId       String
+  treatmentCode   String          // CDT code
+  treatmentName   String
+  description     String?         @db.Text
+  toothNumber     String?
+  status          TreatmentStatus @default(PLANNED)
+  estimatedCost   Decimal         @db.Decimal(10, 2)
+  actualCost      Decimal?        @db.Decimal(10, 2)
+  startDate       DateTime?
+  completionDate  DateTime?
+  notes           String?         @db.Text
+  checklist       Json?           // Treatment steps checklist
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Relations
+  patient         Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  appointment     Appointment?    @relation(fields: [appointmentId], references: [id])
+  dentist         User            @relation(fields: [dentistId], references: [id])
+  insuranceClaims InsuranceClaim[]
+
+  @@index([patientId])
+  @@index([dentistId])
+  @@index([status])
+  @@index([treatmentCode])
+}
+
+// ===== Insurance & Billing =====
+
+enum ClaimStatus {
+  DRAFT
+  SUBMITTED
+  PENDING
+  APPROVED
+  PARTIALLY_APPROVED
+  DENIED
+  PAID
+}
+
+model InsuranceClaim {
+  id                String      @id @default(cuid())
+  patientId         String
+  treatmentId       String?
+  claimNumber       String      @unique
+  insuranceProvider String
+  policyNumber      String
+  status            ClaimStatus @default(DRAFT)
+  submittedDate     DateTime?
+  approvedDate      DateTime?
+  deniedDate        DateTime?
+  claimedAmount     Decimal     @db.Decimal(10, 2)
+  approvedAmount    Decimal?    @db.Decimal(10, 2)
+  paidAmount        Decimal?    @db.Decimal(10, 2)
+  denialReason      String?     @db.Text
+  notes             String?     @db.Text
+  claimData         Json?       // AI-processed claim data
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relations
+  patient           Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  treatment         Treatment?  @relation(fields: [treatmentId], references: [id])
+
+  @@index([patientId])
+  @@index([status])
+  @@index([claimNumber])
+}
+
+// ===== Communication & Reminders =====
+
+enum ReminderType {
+  APPOINTMENT
+  FOLLOW_UP
+  MEDICATION
+  PAYMENT
+  INSURANCE
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+}
+
+model Reminder {
+  id          String         @id @default(cuid())
+  patientId   String
+  userId      String?
+  type        ReminderType
+  status      ReminderStatus @default(PENDING)
+  title       String
+  message     String         @db.Text
+  scheduledAt DateTime
+  sentAt      DateTime?
+  method      String         // SMS, EMAIL, PUSH
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Relations
+  patient     Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  user        User?          @relation(fields: [userId], references: [id])
+
+  @@index([patientId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  senderId   String
+  recipientId String?
+  subject    String?
+  body       String   @db.Text
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  // Relations
+  sender     User     @relation(fields: [senderId], references: [id])
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([createdAt])
+}
+
+// ===== Document Management =====
+
+enum DocumentType {
+  XRAY
+  CONSENT_FORM
+  INSURANCE_CARD
+  MEDICAL_HISTORY
+  TREATMENT_PLAN
+  PRESCRIPTION
+  LAB_REPORT
+  OTHER
+}
+
+model Document {
+  id          String       @id @default(cuid())
+  patientId   String
+  type        DocumentType
+  fileName    String
+  fileUrl     String
+  fileSize    Int
+  mimeType    String
+  description String?
+  uploadedAt  DateTime     @default(now())
+
+  // Relations
+  patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([type])
+}
+
+// ===== Audit & Analytics =====
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String?
+  details   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+}
