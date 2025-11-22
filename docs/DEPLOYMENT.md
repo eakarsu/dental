@@ -1,4 +1,4 @@
-# Deployment Guide
+#   Deployment Guide
 
 This guide covers deploying the Dental Clinic SaaS platform to production.
 
