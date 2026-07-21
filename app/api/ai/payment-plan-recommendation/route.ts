@@ -26,9 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    console.log('[Payment Plan] Request body:', body)
     const data = requestSchema.parse(body)
-    console.log('[Payment Plan] Validated data:', data)
 
     const history = data.patientHistory
     const previousPaymentHistory = history?.previousPayments || []
@@ -87,8 +85,6 @@ CRITICAL:
     ], { temperature: 0.2, max_tokens: 2000 })
 
     console.log('[Payment Plan] OpenRouter response received (length:', response.length, ')' )
-    console.log('[Payment Plan] First 500 chars:', response.substring(0, 500))
-    console.log('[Payment Plan] Last 200 chars:', response.substring(Math.max(0, response.length - 200)))
 
     // Try multiple extraction strategies
     let jsonString = null
@@ -202,13 +198,12 @@ CRITICAL:
     }
 
     console.error('[Payment Plan] Failed to extract JSON from response')
-    console.error('[Payment Plan] Full response:', response)
     return NextResponse.json({ error: 'Failed to extract JSON from AI response' }, { status: 500 })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('[Payment Plan] Validation error:', error.errors)
+      console.error('[Payment Plan] Validation error:', error.issues)
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }

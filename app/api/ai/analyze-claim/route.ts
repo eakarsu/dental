@@ -22,9 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    console.log('[Analyze Claim] Request body:', body)
     const data = requestSchema.parse(body)
-    console.log('[Analyze Claim] Validated data:', data)
 
     const prompt = `You are an expert in dental insurance claims processing. Analyze this claim and provide recommendations.
 
@@ -59,8 +57,6 @@ Respond with ONLY valid JSON.`
     ], { temperature: 0.3 })
 
     console.log('[Analyze Claim] OpenRouter response received (length:', response.length, ')')
-    console.log('[Analyze Claim] First 500 chars:', response.substring(0, 500))
-    console.log('[Analyze Claim] Last 200 chars:', response.substring(Math.max(0, response.length - 200)))
 
     // Try multiple extraction strategies
     let jsonString = null
@@ -139,13 +135,12 @@ Respond with ONLY valid JSON.`
     }
 
     console.error('[Analyze Claim] Failed to extract JSON from response')
-    console.error('[Analyze Claim] Full response:', response)
     return NextResponse.json({ error: 'Failed to extract JSON from AI response' }, { status: 500 })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('[Analyze Claim] Validation error:', error.errors)
+      console.error('[Analyze Claim] Validation error:', error.issues)
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }

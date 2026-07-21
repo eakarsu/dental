@@ -30,8 +30,8 @@ export async function GET(
 
     const { id } = await params
 
-    const treatment = await prisma.treatment.findUnique({
-      where: { id },
+    const treatment = await prisma.treatment.findFirst({
+      where: { id, patient: { clinicId: session.user.clinicId } },
       include: {
         patient: {
           select: {
@@ -85,8 +85,10 @@ export async function PUT(
     const body = await request.json()
     const validatedData = treatmentUpdateSchema.parse(body)
 
+    const existing = await prisma.treatment.findFirst({ where: { id, patient: { clinicId: session.user.clinicId } }, select: { id: true } })
+    if (!existing) return NextResponse.json({ error: 'Treatment not found' }, { status: 404 })
     const treatment = await prisma.treatment.update({
-      where: { id },
+      where: { id: existing.id },
       data: validatedData,
       include: {
         patient: true,
@@ -98,7 +100,7 @@ export async function PUT(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }

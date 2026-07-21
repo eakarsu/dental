@@ -1,0 +1,43 @@
+name: verify
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: dental_test
+          POSTGRES_USER: dental
+          POSTGRES_PASSWORD: dental
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U dental -d dental_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://dental:dental@127.0.0.1:5432/dental_test
+      AUTH_SECRET: ci-only-secret-with-more-than-thirty-two-bytes
+      REGULATED_DATA_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      AUTH_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run db:deploy
+      - run: npm run db:seed
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:clinical
+      - run: npm audit --omit=dev --audit-level=high

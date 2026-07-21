@@ -7,7 +7,7 @@ import {
   Button,
   Card,
   CardContent,
-  Grid,
+  GridLegacy as Grid,
   TextField,
   Typography,
   Alert,
@@ -251,9 +251,6 @@ export default function EditTreatmentPage() {
       }
 
       const data = await response.json()
-      console.log('[AI CDT EDIT] Received data:', data)
-      console.log('[AI CDT EDIT] Setting treatmentCode to:', data.primaryCode)
-      console.log('[AI CDT EDIT] Setting treatmentName to:', data.primaryDescription)
 
       handleChange('treatmentCode', data.primaryCode)
       handleChange('treatmentName', data.primaryDescription)
@@ -277,7 +274,6 @@ export default function EditTreatmentPage() {
     setError('')
 
     try {
-      console.log('[AI SOAP EDIT] Generating SOAP notes...')
       const response = await fetch('/api/ai/generate-soap-notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -294,7 +290,6 @@ export default function EditTreatmentPage() {
       }
 
       const data = await response.json()
-      console.log('[AI SOAP EDIT] Received SOAP notes:', data)
       handleChange('notes', data.soapNotes)
     } catch (error) {
       console.error('[AI SOAP EDIT] Error:', error)

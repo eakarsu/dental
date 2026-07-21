@@ -16,6 +16,21 @@ enum UserRole {
   DENTIST
 }
 
+model Clinic {
+  id                    String             @id @default(cuid())
+  name                  String
+  fhirIssuer            String?
+  retentionDays         Int                @default(2555)
+  createdAt             DateTime           @default(now())
+  users                 User[]
+  patients              Patient[]
+  fhirImports           FhirImport[]
+  consents              PatientConsent[]
+  clinicalReviews       ClinicalReview[]
+  clinicalAuditEvents   ClinicalAuditEvent[]
+  securityIncidents     SecurityIncident[]
+}
+
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
@@ -23,6 +38,7 @@ model User {
   firstName     String
   lastName      String
   role          UserRole
+  clinicId      String
   phone         String?
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
@@ -34,9 +50,14 @@ model User {
   messages      Message[]
   reminders     Reminder[]
   auditLogs     AuditLog[]
+  clinic        Clinic   @relation(fields: [clinicId], references: [id])
+  createdClinicalReviews ClinicalReview[] @relation("ClinicalReviewCreator")
+  decidedClinicalReviews ClinicalReview[] @relation("ClinicalReviewDecider")
 
   @@index([email])
   @@index([role])
+  @@index([clinicId])
+  @@unique([clinicId, email])
 }
 
 // ===== Patient Management =====
@@ -60,6 +81,8 @@ model Patient {
   insuranceGroupNo  String?
   notes             String?   @db.Text
   isActive          Boolean   @default(true)
+  clinicId          String
+  identityMatchKey  String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -69,10 +92,16 @@ model Patient {
   insuranceClaims   InsuranceClaim[]
   reminders         Reminder[]
   documents         Document[]
+  clinic            Clinic    @relation(fields: [clinicId], references: [id])
+  fhirImports       FhirImport[]
+  consents          PatientConsent[]
+  clinicalReviews   ClinicalReview[]
 
   @@index([lastName, firstName])
   @@index([phone])
   @@index([email])
+  @@index([clinicId])
+  @@unique([clinicId, identityMatchKey])
 }
 
 // ===== Appointment Scheduling =====
@@ -313,4 +342,130 @@ model AuditLog {
   @@index([userId])
   @@index([entity])
   @@index([createdAt])
+}
+
+enum ConsentStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum ClinicalReviewStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  ESCALATED
+}
+
+enum ClinicalRiskLevel {
+  LOW
+  MODERATE
+  HIGH
+  CRITICAL
+}
+
+enum SecurityIncidentStatus {
+  OPEN
+  CONTAINED
+  CLOSED
+}
+
+model PatientConsent {
+  id             String        @id @default(cuid())
+  clinicId       String
+  patientId      String
+  scope          String
+  source         String
+  status         ConsentStatus @default(ACTIVE)
+  effectiveAt    DateTime
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  recordedById   String
+  provenanceJson Json
+  createdAt      DateTime      @default(now())
+  clinic         Clinic        @relation(fields: [clinicId], references: [id])
+  patient        Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, patientId, status])
+}
+
+model FhirImport {
+  id                String   @id @default(cuid())
+  clinicId          String
+  patientId         String
+  consentId         String
+  resourceType      String
+  sourceSystem      String
+  sourceResourceId  String
+  sourceVersion     String?
+  payloadCiphertext String   @db.Text
+  payloadDigest     String
+  importedById      String
+  importedAt        DateTime @default(now())
+  clinic            Clinic   @relation(fields: [clinicId], references: [id])
+  patient           Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, sourceSystem, sourceResourceId, payloadDigest])
+  @@index([clinicId, patientId, importedAt])
+}
+
+model ClinicalReview {
+  id                       String               @id @default(cuid())
+  clinicId                 String
+  patientId                String
+  fhirImportId             String?
+  status                   ClinicalReviewStatus @default(PENDING_REVIEW)
+  riskLevel                ClinicalRiskLevel
+  recommendationCiphertext String               @db.Text
+  evidenceJson             Json
+  contraindicationsJson    Json
+  missingDataJson          Json
+  provenanceJson           Json
+  escalationReason         String?              @db.Text
+  createdById              String
+  decidedById              String?
+  decidedAt                DateTime?
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+  clinic                   Clinic               @relation(fields: [clinicId], references: [id])
+  patient                  Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  createdBy                User                 @relation("ClinicalReviewCreator", fields: [createdById], references: [id])
+  decidedBy                User?                @relation("ClinicalReviewDecider", fields: [decidedById], references: [id])
+
+  @@index([clinicId, status, riskLevel])
+  @@index([clinicId, patientId, createdAt])
+}
+
+model ClinicalAuditEvent {
+  id            String   @id @default(cuid())
+  clinicId      String
+  actorId       String
+  action        String
+  entityType    String
+  entityId      String
+  metadataJson  Json
+  previousHash  String?
+  eventHash     String
+  retentionUntil DateTime
+  createdAt     DateTime @default(now())
+  clinic        Clinic   @relation(fields: [clinicId], references: [id])
+
+  @@unique([clinicId, eventHash])
+  @@index([clinicId, createdAt])
+  @@index([clinicId, entityType, entityId])
+}
+
+model SecurityIncident {
+  id               String                 @id @default(cuid())
+  clinicId         String
+  severity         ClinicalRiskLevel
+  status           SecurityIncidentStatus @default(OPEN)
+  summary          String                 @db.Text
+  affectedDataJson Json
+  containedAt      DateTime?
+  closedAt         DateTime?
+  createdAt        DateTime               @default(now())
+  clinic           Clinic                 @relation(fields: [clinicId], references: [id])
+
+  @@index([clinicId, status, severity])
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callOpenRouter } from '@/lib/openrouter'
 import { z } from 'zod'
+import { auth } from '@/lib/auth'
 
 const requestSchema = z.object({
   question: z.string(),
@@ -17,6 +18,8 @@ const requestSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth()
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const body = await request.json()
     const data = requestSchema.parse(body)
 
@@ -108,7 +111,7 @@ Respond naturally and helpfully to the patient's question.`
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }

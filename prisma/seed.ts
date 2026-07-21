@@ -11,13 +11,38 @@ const prisma = new PrismaClient({ adapter })
 async function main() {
   console.log('🌱 Starting database seed...')
 
+  const clinic = await prisma.clinic.upsert({
+    where: { id: 'demo-clinic' },
+    update: {},
+    create: { id: 'demo-clinic', name: 'Dental Clinic Demo' },
+  })
+  const otherClinic = await prisma.clinic.upsert({
+    where: { id: 'isolation-clinic' },
+    update: {},
+    create: { id: 'isolation-clinic', name: 'Isolation Test Clinic' },
+  })
+
   // Create Users
   const hashedPassword = await bcrypt.hash('password123', 10)
+
+  await prisma.user.upsert({
+    where: { email: 'dentist@isolation.invalid' },
+    update: {},
+    create: {
+      clinicId: otherClinic.id,
+      email: 'dentist@isolation.invalid',
+      password: hashedPassword,
+      firstName: 'Isolation',
+      lastName: 'Dentist',
+      role: UserRole.DENTIST,
+    },
+  })
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@dentalclinic.com' },
     update: {},
     create: {
+      clinicId: clinic.id,
       email: 'admin@dentalclinic.com',
       password: hashedPassword,
       firstName: 'Admin',
@@ -31,6 +56,7 @@ async function main() {
     where: { email: 'receptionist@dentalclinic.com' },
     update: {},
     create: {
+      clinicId: clinic.id,
       email: 'receptionist@dentalclinic.com',
       password: hashedPassword,
       firstName: 'Sarah',
@@ -44,6 +70,7 @@ async function main() {
     where: { email: 'dr.smith@dentalclinic.com' },
     update: {},
     create: {
+      clinicId: clinic.id,
       email: 'dr.smith@dentalclinic.com',
       password: hashedPassword,
       firstName: 'John',
@@ -57,6 +84,7 @@ async function main() {
     where: { email: 'dr.williams@dentalclinic.com' },
     update: {},
     create: {
+      clinicId: clinic.id,
       email: 'dr.williams@dentalclinic.com',
       password: hashedPassword,
       firstName: 'Emily',
@@ -70,6 +98,7 @@ async function main() {
     where: { email: 'hygienist@dentalclinic.com' },
     update: {},
     create: {
+      clinicId: clinic.id,
       email: 'hygienist@dentalclinic.com',
       password: hashedPassword,
       firstName: 'Maria',
@@ -85,6 +114,7 @@ async function main() {
   const patients = await Promise.all([
     prisma.patient.create({
       data: {
+        clinicId: clinic.id,
         firstName: 'Michael',
         lastName: 'Anderson',
         dateOfBirth: new Date('1985-03-15'),
@@ -109,6 +139,7 @@ async function main() {
     }),
     prisma.patient.create({
       data: {
+        clinicId: clinic.id,
         firstName: 'Jennifer',
         lastName: 'Martinez',
         dateOfBirth: new Date('1992-07-22'),
@@ -132,6 +163,7 @@ async function main() {
     }),
     prisma.patient.create({
       data: {
+        clinicId: clinic.id,
         firstName: 'Robert',
         lastName: 'Taylor',
         dateOfBirth: new Date('1978-11-30'),
@@ -156,6 +188,7 @@ async function main() {
     }),
     prisma.patient.create({
       data: {
+        clinicId: clinic.id,
         firstName: 'Lisa',
         lastName: 'Thompson',
         dateOfBirth: new Date('1995-05-18'),
@@ -174,6 +207,7 @@ async function main() {
     }),
     prisma.patient.create({
       data: {
+        clinicId: clinic.id,
         firstName: 'David',
         lastName: 'Wilson',
         dateOfBirth: new Date('1988-09-05'),

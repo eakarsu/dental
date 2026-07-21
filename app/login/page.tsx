@@ -35,19 +35,10 @@ export default function LoginPage() {
         redirect: false,
       })
 
-      console.log('🔐 Sign in result:', result)
-      console.log('   - ok:', result?.ok)
-      console.log('   - error:', result?.error)
-      console.log('   - status:', result?.status)
-      console.log('   - url:', result?.url)
-
       if (result?.error) {
-        console.error('❌ Login failed:', result.error)
         setError('Invalid email or password')
         setLoading(false)
       } else if (result?.ok) {
-        console.log('✅ Login successful! Waiting for session...')
-
         // Wait a bit for the session cookie to be set
         await new Promise(resolve => setTimeout(resolve, 500))
 
@@ -55,21 +46,13 @@ export default function LoginPage() {
         const sessionCheck = await fetch('/api/auth/session')
         const session = await sessionCheck.json()
 
-        console.log('📦 Session check response:', session)
-        console.log('   - Has user?', !!session?.user)
-        console.log('   - User object:', session?.user)
-
         if (session && session.user) {
-          console.log('✅ Session confirmed! Redirecting to dashboard...')
           window.location.href = '/dashboard'
         } else {
-          console.error('❌ Session not set properly')
-          console.error('   - Session object:', JSON.stringify(session, null, 2))
           setError('Session error. Please try again.')
           setLoading(false)
         }
       } else {
-        console.warn('⚠️ Unexpected result:', result)
         setError('An unexpected error occurred')
         setLoading(false)
       }

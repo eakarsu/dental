@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const patientId = searchParams.get('patientId')
     const status = searchParams.get('status')
 
-    const where: any = {}
+    const where: any = { patient: { clinicId: session.user.clinicId } }
     if (patientId) where.patientId = patientId
     if (status) where.status = status
 
@@ -74,6 +74,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = claimSchema.parse(body)
 
+    const patient = await prisma.patient.findFirst({ where: { id: validatedData.patientId, clinicId: session.user.clinicId }, select: { id: true } })
+    if (!patient) return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
+
     const claim = await prisma.insuranceClaim.create({
       data: validatedData,
       include: {
@@ -86,7 +89,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }

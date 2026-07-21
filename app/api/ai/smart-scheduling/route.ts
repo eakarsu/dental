@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
     const data = requestSchema.parse(body)
 
     // Fetch patient history
-    const patient = await prisma.patient.findUnique({
-      where: { id: data.patientId },
+    const patient = await prisma.patient.findFirst({
+      where: { id: data.patientId, clinicId: session.user.clinicId },
       include: {
         appointments: {
           orderBy: { startTime: 'desc' },
@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
     // Fetch upcoming appointments for all dentists
     const upcomingAppointments = await prisma.appointment.findMany({
       where: {
+        patient: { clinicId: session.user.clinicId },
         startTime: {
           gte: new Date()
         },
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
       time: new Date(apt.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
       day: new Date(apt.startTime).toLocaleDateString('en-US', { weekday: 'long' }),
       status: apt.status,
-      dentist: `Dr. ${apt.dentist.firstName} ${apt.dentist.lastName}`
+      dentist: apt.dentist ? `Dr. ${apt.dentist.firstName} ${apt.dentist.lastName}` : 'Unassigned'
     })) || []
 
     const prompt = `You are an AI scheduling assistant for a dental practice. Analyze the data and recommend optimal appointment times.
@@ -138,7 +139,7 @@ Return ONLY valid JSON.`
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }

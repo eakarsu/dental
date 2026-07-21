@@ -28,8 +28,8 @@ export async function GET(
 
     const { id } = await params
 
-    const appointment = await prisma.appointment.findUnique({
-      where: { id },
+    const appointment = await prisma.appointment.findFirst({
+      where: { id, patient: { clinicId: session.user.clinicId } },
       include: {
         patient: true,
         dentist: true,
@@ -68,8 +68,10 @@ export async function PATCH(
     const body = await request.json()
     const validatedData = appointmentUpdateSchema.parse(body)
 
+    const existing = await prisma.appointment.findFirst({ where: { id, patient: { clinicId: session.user.clinicId } }, select: { id: true } })
+    if (!existing) return NextResponse.json({ error: 'Appointment not found' }, { status: 404 })
     const appointment = await prisma.appointment.update({
-      where: { id },
+      where: { id: existing.id },
       data: validatedData,
       include: {
         patient: true,
@@ -81,7 +83,7 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }
@@ -105,9 +107,8 @@ export async function DELETE(
 
     const { id } = await params
 
-    await prisma.appointment.delete({
-      where: { id },
-    })
+    const deleted = await prisma.appointment.deleteMany({ where: { id, patient: { clinicId: session.user.clinicId } } })
+    if (deleted.count !== 1) return NextResponse.json({ error: 'Appointment not found' }, { status: 404 })
 
     return NextResponse.json({ success: true })
   } catch (error) {

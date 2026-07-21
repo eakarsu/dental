@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
 import {
   Box,
   Button,
@@ -18,9 +17,11 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Grid,
+  GridLegacy as Grid,
   Divider,
   IconButton,
+  Alert,
+  MenuItem,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import MailOutlineIcon from '@mui/icons-material/MailOutline'
@@ -43,8 +44,9 @@ interface Message {
 }
 
 export default function MessagesPage() {
-  const { data: session } = useSession()
   const [messages, setMessages] = useState<Message[]>([])
+  const [recipients, setRecipients] = useState<Array<{ id: string; firstName: string; lastName: string; role: string }>>([])
+  const [error, setError] = useState('')
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
   const [openNewMessage, setOpenNewMessage] = useState(false)
   const [newMessage, setNewMessage] = useState({
@@ -54,59 +56,37 @@ export default function MessagesPage() {
   })
 
   useEffect(() => {
-    // Since we don't have a messages API endpoint yet, show sample data
-    const sampleMessages: Message[] = [
-      {
-        id: '1',
-        subject: 'Patient Follow-up Required',
-        body: 'Please follow up with Michael Anderson regarding his upcoming root canal appointment.',
-        isRead: false,
-        createdAt: new Date().toISOString(),
-        sender: {
-          firstName: 'Sarah',
-          lastName: 'Johnson',
-          role: 'RECEPTIONIST',
-        },
-      },
-      {
-        id: '2',
-        subject: 'Insurance Pre-authorization Approved',
-        body: 'The pre-authorization for Jennifer Martinez\'s crown procedure has been approved by Aetna.',
-        isRead: false,
-        createdAt: new Date(Date.now() - 3600000).toISOString(),
-        sender: {
-          firstName: 'Admin',
-          lastName: 'User',
-          role: 'ADMIN',
-        },
-      },
-      {
-        id: '3',
-        subject: 'Schedule Update',
-        body: 'Tomorrow\'s morning appointments have been rescheduled due to emergency. Please check the updated calendar.',
-        isRead: true,
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        sender: {
-          firstName: 'John',
-          lastName: 'Smith',
-          role: 'DENTIST',
-        },
-      },
-    ]
-    setMessages(sampleMessages)
+    Promise.all([fetch('/api/messages'), fetch('/api/users')])
+      .then(async ([messageResponse, userResponse]) => {
+        const [messageBody, userBody] = await Promise.all([messageResponse.json(), userResponse.json()])
+        if (!messageResponse.ok || !userResponse.ok) throw new Error(messageBody.error ?? userBody.error ?? 'Unable to load messages')
+        setMessages(messageBody.messages)
+        setRecipients(userBody.users)
+      })
+      .catch((reason) => setError(reason instanceof Error ? reason.message : 'Unable to load messages'))
   }, [])
 
-  const handleMarkAsRead = (messageId: string) => {
+  const handleMarkAsRead = async (messageId: string) => {
+    const response = await fetch(`/api/messages/${messageId}`, { method: 'PATCH' })
+    if (!response.ok) { setError('Unable to mark message as read'); return }
     setMessages(messages.map(msg =>
       msg.id === messageId ? { ...msg, isRead: true } : msg
     ))
   }
 
-  const handleSendMessage = () => {
-    // This would call the API to send a message
-    console.log('Sending message:', newMessage)
+  const handleSendMessage = async () => {
+    const response = await fetch('/api/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newMessage) })
+    const body = await response.json()
+    if (!response.ok) { setError(body.error ?? 'Unable to send message'); return }
     setOpenNewMessage(false)
     setNewMessage({ recipientId: '', subject: '', body: '' })
+  }
+
+  const handleDelete = async (messageId: string) => {
+    const response = await fetch(`/api/messages/${messageId}`, { method: 'DELETE' })
+    if (!response.ok) { setError('Unable to delete message'); return }
+    setMessages(messages.filter((message) => message.id !== messageId))
+    setSelectedMessage(null)
   }
 
   const unreadCount = messages.filter(m => !m.isRead).length
@@ -130,6 +110,7 @@ export default function MessagesPage() {
           New Message
         </Button>
       </Box>
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
       <Grid container spacing={3}>
         {/* Message List */}
@@ -140,7 +121,6 @@ export default function MessagesPage() {
                 <Box key={message.id}>
                   <ListItem
                     component="button"
-                    selected={selectedMessage?.id === message.id}
                     onClick={() => {
                       setSelectedMessage(message)
                       if (!message.isRead) {
@@ -218,7 +198,7 @@ export default function MessagesPage() {
                       </Box>
                     </Box>
                   </Box>
-                  <IconButton size="small" color="error">
+                  <IconButton size="small" color="error" aria-label="Delete message" onClick={() => handleDelete(selectedMessage.id)}>
                     <DeleteIcon />
                   </IconButton>
                 </Box>
@@ -257,15 +237,17 @@ export default function MessagesPage() {
         <DialogContent>
           <Box sx={{ mt: 2 }}>
             <TextField
+              select
               fullWidth
               label="Recipient"
               value={newMessage.recipientId}
               onChange={(e) =>
                 setNewMessage({ ...newMessage, recipientId: e.target.value })
               }
-              placeholder="Select recipient"
               sx={{ mb: 2 }}
-            />
+            >
+              {recipients.map((recipient) => <MenuItem key={recipient.id} value={recipient.id}>{recipient.firstName} {recipient.lastName} ({recipient.role})</MenuItem>)}
+            </TextField>
             <TextField
               fullWidth
               label="Subject"
@@ -293,6 +275,7 @@ export default function MessagesPage() {
             variant="contained"
             startIcon={<SendIcon />}
             onClick={handleSendMessage}
+            disabled={!newMessage.recipientId || !newMessage.subject.trim() || !newMessage.body.trim()}
           >
             Send
           </Button>

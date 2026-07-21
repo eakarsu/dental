@@ -7,7 +7,7 @@ import {
   Button,
   Card,
   CardContent,
-  Grid,
+  GridLegacy as Grid,
   Typography,
   Chip,
   Divider,
@@ -138,7 +138,6 @@ export default function PatientDetailPage() {
     setError('')
 
     try {
-      console.log('[AI Risk Assessment] Starting assessment...')
       const age = calculateAge(patient.dateOfBirth)
 
       // Handle medicalHistory as either JSON object or string
@@ -179,7 +178,6 @@ export default function PatientDetailPage() {
 
       console.log('[AI Risk Assessment] Response status:', response.status)
       const data = await response.json()
-      console.log('[AI Risk Assessment] Response data:', data)
 
       if (!response.ok) {
         const errorMsg = data.error || data.details || 'Failed to assess risk'
@@ -206,7 +204,6 @@ export default function PatientDetailPage() {
     setError('')
 
     try {
-      console.log('[AI Treatment Recommendations] Getting recommendations...')
       const age = calculateAge(patient?.dateOfBirth || null)
 
       // Handle medicalHistory as either JSON object or string
@@ -233,7 +230,6 @@ export default function PatientDetailPage() {
 
       console.log('[AI Treatment Recommendations] Response status:', response.status)
       const data = await response.json()
-      console.log('[AI Treatment Recommendations] Response data:', data)
 
       if (!response.ok) {
         const errorMsg = data.error || data.details || 'Failed to get recommendations'
@@ -281,7 +277,6 @@ export default function PatientDetailPage() {
 
       console.log('[AI Treatment Plan Summary] Response status:', response.status)
       const data = await response.json()
-      console.log('[AI Treatment Plan Summary] Response data:', data)
 
       if (!response.ok) {
         const errorMsg = data.error || data.details || 'Failed to generate summary'

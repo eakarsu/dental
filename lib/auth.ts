@@ -10,11 +10,13 @@ declare module 'next-auth' {
     user: {
       id: string
       role: UserRole
+      clinicId: string
     } & DefaultSession['user']
   }
 
   interface User {
     role: UserRole
+    clinicId: string
   }
 }
 
@@ -37,12 +39,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           })
 
           if (!user) {
-            console.error('User not found:', credentials.email)
+            console.error('Authentication failed: user not found')
             return null
           }
 
           if (!user.isActive) {
-            console.error('User not active:', credentials.email)
+            console.error('Authentication failed: inactive user')
             return null
           }
 
@@ -51,19 +53,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             user.password
           )
 
-          console.log('Password validation result:', isPasswordValid)
-
           if (!isPasswordValid) {
-            console.error('Invalid password for:', credentials.email)
+            console.error('Authentication failed: invalid credential')
             return null
           }
 
-          console.log('Authentication successful for:', credentials.email)
+          console.log('Authentication successful')
           return {
             id: user.id,
             email: user.email,
             name: `${user.firstName} ${user.lastName}`,
             role: user.role,
+            clinicId: user.clinicId,
           }
         } catch (error) {
           console.error('Auth error:', error)
@@ -86,7 +87,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: false, // Set to false for local development
+        secure: process.env.NODE_ENV === 'production',
       },
     },
   },
@@ -95,6 +96,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id
         token.role = user.role
+        token.clinicId = user.clinicId
       }
       return token
     },
@@ -102,6 +104,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as UserRole
+        session.user.clinicId = token.clinicId as string
       }
       return session
     },

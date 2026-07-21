@@ -31,6 +31,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications'
 import MessageIcon from '@mui/icons-material/Message'
 import LogoutIcon from '@mui/icons-material/Logout'
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
+import FactCheckIcon from '@mui/icons-material/FactCheck'
 import AIChatbotWidget from '@/components/AIChatbotWidget'
 
 const drawerWidth = 260
@@ -41,6 +42,7 @@ const menuItems = [
   { title: 'Appointments', icon: <EventIcon />, href: '/dashboard/appointments' },
   { title: 'Treatments', icon: <MedicalServicesIcon />, href: '/dashboard/treatments' },
   { title: 'Insurance Claims', icon: <ReceiptIcon />, href: '/dashboard/claims' },
+  { title: 'Clinical Review', icon: <FactCheckIcon />, href: '/dashboard/clinical-review' },
   { title: 'Messages', icon: <MessageIcon />, href: '/dashboard/messages' },
 ]
 

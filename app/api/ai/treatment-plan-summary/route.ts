@@ -25,9 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    console.log('[Treatment Plan Summary] Request body:', body)
     const data = requestSchema.parse(body)
-    console.log('[Treatment Plan Summary] Validated data:', data)
 
     const treatmentList = data.treatments.map((t, i) =>
       `${i + 1}. ${t.treatmentName} (${t.treatmentCode})${t.toothNumber ? ` - Tooth #${t.toothNumber}` : ''}\n   Cost: $${t.estimatedCost.toFixed(2)}${t.description ? `\n   Notes: ${t.description}` : ''}`
@@ -81,7 +79,6 @@ Write in a warm, reassuring, professional tone. Use simple language that a patie
       }, { status: 500 })
     }
 
-    console.log('[Treatment Plan Summary] First 300 chars:', response.substring(0, 300))
 
     return NextResponse.json({
       summary: response,
@@ -91,9 +88,9 @@ Write in a warm, reassuring, professional tone. Use simple language that a patie
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('[Treatment Plan Summary] Validation error:', error.errors)
+      console.error('[Treatment Plan Summary] Validation error:', error.issues)
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }

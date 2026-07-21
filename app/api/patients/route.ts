@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { z } from 'zod'
+import { redactPatient } from '@/lib/clinical-policy'
 
 const patientSchema = z.object({
   firstName: z.string().min(1),
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
 
     const where = search
       ? {
+          clinicId: session.user.clinicId,
           OR: [
             { firstName: { contains: search, mode: 'insensitive' as const } },
             { lastName: { contains: search, mode: 'insensitive' as const } },
@@ -44,7 +46,7 @@ export async function GET(request: NextRequest) {
             { phone: { contains: search } },
           ],
         }
-      : {}
+      : { clinicId: session.user.clinicId }
 
     const [patients, total] = await Promise.all([
       prisma.patient.findMany({
@@ -65,7 +67,7 @@ export async function GET(request: NextRequest) {
     ])
 
     return NextResponse.json({
-      patients,
+      patients: patients.map((patient) => redactPatient(patient, session.user.role)),
       pagination: {
         total,
         page,
@@ -93,14 +95,14 @@ export async function POST(request: NextRequest) {
     const validatedData = patientSchema.parse(body)
 
     const patient = await prisma.patient.create({
-      data: validatedData,
+      data: { ...validatedData, clinicId: session.user.clinicId },
     })
 
-    return NextResponse.json(patient, { status: 201 })
+    return NextResponse.json(redactPatient(patient, session.user.role), { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }

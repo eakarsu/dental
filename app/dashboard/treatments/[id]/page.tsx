@@ -7,7 +7,7 @@ import {
   Button,
   Card,
   CardContent,
-  Grid,
+  GridLegacy as Grid,
   Typography,
   Chip,
   Divider,
@@ -120,7 +120,6 @@ export default function TreatmentDetailPage() {
 
       console.log('[Payment Plans] Response status:', response.status)
       const data = await response.json()
-      console.log('[Payment Plans] Response data:', data)
 
       if (!response.ok) {
         const errorMsg = data.error || data.details || 'Failed to get payment plans'
@@ -157,7 +156,6 @@ export default function TreatmentDetailPage() {
 
       console.log('[AI Translate] Response status:', response.status)
       const data = await response.json()
-      console.log('[AI Translate] Response data:', data)
 
       if (!response.ok) {
         const errorMsg = data.error || data.details || 'Failed to translate'

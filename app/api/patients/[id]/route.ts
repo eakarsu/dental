@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { z } from 'zod'
+import { redactPatient } from '@/lib/clinical-policy'
 
 const patientUpdateSchema = z.object({
   firstName: z.string().min(1).optional(),
@@ -35,8 +36,8 @@ export async function GET(
 
     const { id } = await params
 
-    const patient = await prisma.patient.findUnique({
-      where: { id },
+    const patient = await prisma.patient.findFirst({
+      where: { id, clinicId: session.user.clinicId },
       include: {
         appointments: {
           orderBy: { startTime: 'desc' },
@@ -57,7 +58,7 @@ export async function GET(
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
     }
 
-    return NextResponse.json(patient)
+    return NextResponse.json(redactPatient(patient, session.user.role))
   } catch (error) {
     console.error('Error fetching patient:', error)
     return NextResponse.json(
@@ -81,16 +82,18 @@ export async function PATCH(
     const body = await request.json()
     const validatedData = patientUpdateSchema.parse(body)
 
+    const existing = await prisma.patient.findFirst({ where: { id, clinicId: session.user.clinicId }, select: { id: true } })
+    if (!existing) return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
     const patient = await prisma.patient.update({
-      where: { id },
+      where: { id: existing.id },
       data: validatedData,
     })
 
-    return NextResponse.json(patient)
+    return NextResponse.json(redactPatient(patient, session.user.role))
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }
@@ -114,9 +117,8 @@ export async function DELETE(
 
     const { id } = await params
 
-    await prisma.patient.delete({
-      where: { id },
-    })
+    const deleted = await prisma.patient.deleteMany({ where: { id, clinicId: session.user.clinicId } })
+    if (deleted.count !== 1) return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
 
     return NextResponse.json({ success: true })
   } catch (error) {

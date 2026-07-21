@@ -14,8 +14,8 @@ export async function GET(
 
     const { id } = await params
 
-    const claim = await prisma.insuranceClaim.findUnique({
-      where: { id },
+    const claim = await prisma.insuranceClaim.findFirst({
+      where: { id, patient: { clinicId: session.user.clinicId } },
       include: {
         patient: {
           select: {

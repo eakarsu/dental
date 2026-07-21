@@ -21,21 +21,24 @@ export async function GET(request: NextRequest) {
       totalClaims,
       recentClaims,
     ] = await Promise.all([
-      prisma.patient.count(),
-      prisma.appointment.count(),
+      prisma.patient.count({ where: { clinicId: session.user.clinicId } }),
+      prisma.appointment.count({ where: { patient: { clinicId: session.user.clinicId } } }),
       prisma.appointment.findMany({
+        where: { patient: { clinicId: session.user.clinicId } },
         take: 10,
         orderBy: { createdAt: 'desc' },
         include: { patient: true },
       }),
-      prisma.treatment.count(),
+      prisma.treatment.count({ where: { patient: { clinicId: session.user.clinicId } } }),
       prisma.treatment.groupBy({
         by: ['status'],
+        where: { patient: { clinicId: session.user.clinicId } },
         _count: true,
       }),
-      prisma.insuranceClaim.count(),
+      prisma.insuranceClaim.count({ where: { patient: { clinicId: session.user.clinicId } } }),
       prisma.insuranceClaim.groupBy({
         by: ['status'],
+        where: { patient: { clinicId: session.user.clinicId } },
         _count: true,
       }),
     ])

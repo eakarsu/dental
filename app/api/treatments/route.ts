@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const dentistId = searchParams.get('dentistId')
     const status = searchParams.get('status')
 
-    const where: any = {}
+    const where: any = { patient: { clinicId: session.user.clinicId } }
     if (patientId) where.patientId = patientId
     if (dentistId) where.dentistId = dentistId
     if (status) where.status = status
@@ -80,6 +80,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = treatmentSchema.parse(body)
 
+    const [patient, dentist] = await Promise.all([
+      prisma.patient.findFirst({ where: { id: validatedData.patientId, clinicId: session.user.clinicId }, select: { id: true } }),
+      prisma.user.findFirst({ where: { id: validatedData.dentistId, clinicId: session.user.clinicId }, select: { id: true } }),
+    ])
+    if (!patient || !dentist) return NextResponse.json({ error: 'Tenant-scoped patient or dentist not found' }, { status: 404 })
+
     const treatment = await prisma.treatment.create({
       data: validatedData,
       include: {
@@ -92,7 +98,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }

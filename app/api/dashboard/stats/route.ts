@@ -24,9 +24,10 @@ export async function GET() {
       upcomingAppointments,
       recentPatients,
     ] = await Promise.all([
-      prisma.patient.count({ where: { isActive: true } }),
+      prisma.patient.count({ where: { isActive: true, clinicId: session.user.clinicId } }),
       prisma.appointment.count({
         where: {
+          patient: { clinicId: session.user.clinicId },
           startTime: {
             gte: startToday,
             lte: endToday,
@@ -36,11 +37,13 @@ export async function GET() {
       }),
       prisma.insuranceClaim.count({
         where: {
+          patient: { clinicId: session.user.clinicId },
           status: { in: ['SUBMITTED', 'PENDING'] },
         },
       }),
       prisma.treatment.findMany({
         where: {
+          patient: { clinicId: session.user.clinicId },
           status: 'COMPLETED',
           completionDate: {
             gte: startMonth,
@@ -53,6 +56,7 @@ export async function GET() {
       }),
       prisma.appointment.findMany({
         where: {
+          patient: { clinicId: session.user.clinicId },
           startTime: {
             gte: today,
           },
@@ -71,6 +75,7 @@ export async function GET() {
         },
       }),
       prisma.patient.findMany({
+        where: { clinicId: session.user.clinicId },
         take: 5,
         orderBy: { createdAt: 'desc' },
         select: {

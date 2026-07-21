@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Box, Button, Typography, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Grid, Chip, Autocomplete, Alert, CircularProgress } from '@mui/material'
+import { Box, Button, Typography, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, GridLegacy as Grid, Chip, Autocomplete, Alert, CircularProgress } from '@mui/material'
 import { Calendar, momentLocalizer, View } from 'react-big-calendar'
 import moment from 'moment'
 import AddIcon from '@mui/icons-material/Add'
@@ -212,7 +212,6 @@ export default function AppointmentsPage() {
       }
 
       const data = await response.json()
-      console.log('[AI Communication] Message generated:', data)
       setGeneratedMessage(data.generatedMessage)
     } catch (error) {
       console.error('[AI Communication] Error:', error)

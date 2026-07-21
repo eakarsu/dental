@@ -7,12 +7,14 @@ import {
   Button,
   Card,
   CardContent,
-  Grid,
+  GridLegacy as Grid,
   TextField,
   Typography,
   Alert,
   MenuItem,
   Autocomplete,
+  Chip,
+  Divider,
 } from '@mui/material'
 import { DatePicker } from '@mui/x-date-pickers'
 import SaveIcon from '@mui/icons-material/Save'
@@ -188,9 +190,6 @@ export default function NewTreatmentPage() {
       }
 
       const data = await response.json()
-      console.log('[AI CDT] Received data:', data)
-      console.log('[AI CDT] Setting treatmentCode to:', data.primaryCode)
-      console.log('[AI CDT] Setting treatmentName to:', data.primaryDescription)
 
       handleChange('treatmentCode', data.primaryCode)
       handleChange('treatmentName', data.primaryDescription)
@@ -214,7 +213,6 @@ export default function NewTreatmentPage() {
     setError('')
 
     try {
-      console.log('[AI SOAP] Generating SOAP notes...')
       const response = await fetch('/api/ai/generate-soap-notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -231,7 +229,6 @@ export default function NewTreatmentPage() {
       }
 
       const data = await response.json()
-      console.log('[AI SOAP] Received SOAP notes:', data)
       handleChange('notes', data.soapNotes)
     } catch (error) {
       console.error('[AI SOAP] Error:', error)
@@ -267,7 +264,6 @@ export default function NewTreatmentPage() {
       }
 
       const data = await response.json()
-      console.log('[AI Translate] Received translation:', data)
 
       // Update the notes field with patient-friendly version
       handleChange('notes', data.patientFriendlyText)
@@ -289,7 +285,6 @@ export default function NewTreatmentPage() {
     setError('')
 
     try {
-      console.log('[AI Recommendations] Getting treatment recommendations...')
       const response = await fetch('/api/ai/treatment-recommendations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -305,7 +300,6 @@ export default function NewTreatmentPage() {
       }
 
       const data = await response.json()
-      console.log('[AI Recommendations] Received recommendations:', data)
       setTreatmentRecommendations(data)
     } catch (error) {
       console.error('[AI Recommendations] Error:', error)
@@ -325,7 +319,6 @@ export default function NewTreatmentPage() {
     setError('')
 
     try {
-      console.log('[AI Risk] Performing risk assessment...')
       const response = await fetch('/api/ai/risk-assessment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -341,7 +334,6 @@ export default function NewTreatmentPage() {
       }
 
       const data = await response.json()
-      console.log('[AI Risk] Received assessment:', data)
       setRiskAssessment(data)
     } catch (error) {
       console.error('[AI Risk] Error:', error)

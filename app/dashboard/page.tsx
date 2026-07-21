@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import {
-  Grid,
+  GridLegacy as Grid,
   Card,
   CardContent,
   Typography,
@@ -113,7 +113,6 @@ export default function DashboardPage() {
         throw new Error('Failed to fetch AI insights')
       }
       const data = await response.json()
-      console.log('[AI Insights] Received insights:', data)
       setAiInsights(data.insights || [])
     } catch (error) {
       console.error('[AI Insights] Error:', error)
@@ -135,7 +134,6 @@ export default function DashboardPage() {
 
       const data = await response.json()
       console.log('[Revenue Forecast] Response status:', response.status)
-      console.log('[Revenue Forecast] Response data:', data)
 
       if (!response.ok) {
         const errorMsg = data.details || data.error || 'Failed to fetch revenue forecast'

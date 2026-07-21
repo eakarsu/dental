@@ -54,17 +54,15 @@ export async function callOpenRouter(messages: OpenRouterMessage[], options?: {
     console.log('[OpenRouter] Response status:', response.status, response.statusText)
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('[OpenRouter] API error response:', errorText)
-      throw new Error(`OpenRouter API error (${response.status}): ${errorText}`)
+      await response.text()
+      console.error('[OpenRouter] Provider request failed with status', response.status)
+      throw new Error(`OpenRouter API error (${response.status})`)
     }
 
     const data = await response.json()
     console.log('[OpenRouter] Success, received response')
-    console.log('[OpenRouter] Response data:', JSON.stringify(data, null, 2))
-
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error('[OpenRouter] Invalid response structure:', JSON.stringify(data, null, 2))
+      console.error('[OpenRouter] Invalid response structure')
       throw new Error('Invalid response from OpenRouter API')
     }
 
@@ -72,7 +70,6 @@ export async function callOpenRouter(messages: OpenRouterMessage[], options?: {
 
     if (!content || content.trim().length === 0) {
       console.error('[OpenRouter] Empty content in response')
-      console.error('[OpenRouter] Full response:', JSON.stringify(data, null, 2))
       throw new Error('OpenRouter returned empty content')
     }
 

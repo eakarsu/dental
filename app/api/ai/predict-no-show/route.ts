@@ -4,6 +4,11 @@ import { callOpenRouter } from '@/lib/openrouter'
 import { extractAndParseJSON } from '@/lib/json-parser'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import type { Prisma } from '@prisma/client'
+
+type AppointmentWithPatientHistory = Prisma.AppointmentGetPayload<{
+  include: { patient: { include: { appointments: true } } }
+}>
 
 const requestSchema = z.object({
   appointmentId: z.string().optional(),
@@ -20,12 +25,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const data = requestSchema.parse(body)
 
-    let appointments = []
+    let appointments: AppointmentWithPatientHistory[] = []
 
     if (data.appointmentId) {
       // Predict for a specific appointment
-      const appointment = await prisma.appointment.findUnique({
-        where: { id: data.appointmentId },
+      const appointment = await prisma.appointment.findFirst({
+        where: { id: data.appointmentId, patient: { clinicId: session.user.clinicId } },
         include: {
           patient: {
             include: {
@@ -45,6 +50,7 @@ export async function POST(request: NextRequest) {
       appointments = await prisma.appointment.findMany({
         where: {
           patientId: data.patientId,
+          patient: { clinicId: session.user.clinicId },
           startTime: { gte: new Date() }
         },
         include: {
@@ -62,6 +68,7 @@ export async function POST(request: NextRequest) {
       // Predict for all upcoming appointments
       appointments = await prisma.appointment.findMany({
         where: {
+          patient: { clinicId: session.user.clinicId },
           startTime: {
             gte: new Date(),
             lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Next 7 days
@@ -161,7 +168,7 @@ Return ONLY valid JSON.`
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }

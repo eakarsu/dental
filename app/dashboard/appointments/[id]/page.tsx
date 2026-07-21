@@ -7,7 +7,7 @@ import {
   Button,
   Card,
   CardContent,
-  Grid,
+  GridLegacy as Grid,
   Typography,
   Chip,
   Divider,
@@ -107,7 +107,6 @@ export default function AppointmentDetailPage() {
 
       console.log('[No-Show Prediction] Response status:', response.status)
       const data = await response.json()
-      console.log('[No-Show Prediction] Response data:', data)
 
       if (!response.ok) {
         const errorMsg = data.error || data.details || 'Failed to predict no-show'
@@ -214,7 +213,7 @@ export default function AppointmentDetailPage() {
         <Chip
           label={appointment.status}
           color={getStatusColor(appointment.status)}
-          size="large"
+          size="medium"
         />
       </Box>
 

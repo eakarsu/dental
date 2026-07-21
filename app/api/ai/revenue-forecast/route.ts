@@ -19,9 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    console.log('[Revenue Forecast] Request body:', body)
     const data = requestSchema.parse(body)
-    console.log('[Revenue Forecast] Validated data:', data)
 
     // Fetch historical data
     const sixMonthsAgo = new Date()
@@ -30,6 +28,7 @@ export async function POST(request: NextRequest) {
     const [treatments, appointments, claims] = await Promise.all([
       prisma.treatment.findMany({
         where: {
+          patient: { clinicId: session.user.clinicId },
           createdAt: { gte: sixMonthsAgo }
         },
         select: {
@@ -41,6 +40,7 @@ export async function POST(request: NextRequest) {
       }),
       prisma.appointment.findMany({
         where: {
+          patient: { clinicId: session.user.clinicId },
           startTime: { gte: sixMonthsAgo }
         },
         select: {
@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
       }),
       prisma.insuranceClaim.findMany({
         where: {
+          patient: { clinicId: session.user.clinicId },
           createdAt: { gte: sixMonthsAgo }
         },
         select: {
@@ -97,6 +98,7 @@ export async function POST(request: NextRequest) {
     // Get upcoming scheduled treatments
     const upcomingTreatments = await prisma.treatment.findMany({
       where: {
+        patient: { clinicId: session.user.clinicId },
         status: { in: ['PLANNED', 'IN_PROGRESS'] }
       },
       select: {
@@ -186,9 +188,9 @@ Return ONLY valid JSON.`
     }, { status: 500 })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('[Revenue Forecast] Validation error:', error.errors)
+      console.error('[Revenue Forecast] Validation error:', error.issues)
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }

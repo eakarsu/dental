@@ -7,7 +7,7 @@ import {
   Button,
   Card,
   CardContent,
-  Grid,
+  GridLegacy as Grid,
   Typography,
   Chip,
   Divider,
@@ -122,7 +122,6 @@ export default function ClaimDetailPage() {
           : undefined,
         medicalNecessity: claim.notes || '',
       }
-      console.log('[AI Analyze Claim] Request body:', requestBody)
 
       const response = await fetch('/api/ai/analyze-claim', {
         method: 'POST',
@@ -132,7 +131,6 @@ export default function ClaimDetailPage() {
 
       console.log('[AI Analyze Claim] Response status:', response.status)
       const data = await response.json()
-      console.log('[AI Analyze Claim] Response data:', data)
 
       if (!response.ok) {
         const errorMsg = data.error || data.details || 'Failed to analyze claim'
@@ -182,7 +180,6 @@ export default function ClaimDetailPage() {
       }
 
       const data = await response.json()
-      console.log('[AI Appeal Letter] Letter generated:', data)
       setAppealLetter(data.appealLetter)
     } catch (error) {
       console.error('[AI Appeal Letter] Error:', error)
@@ -280,7 +277,7 @@ export default function ClaimDetailPage() {
           <Chip
             label={claim.status.replace('_', ' ')}
             color={getStatusColor(claim.status)}
-            size="large"
+            size="medium"
           />
         </Box>
       </Box>

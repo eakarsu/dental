@@ -11,8 +11,6 @@ interface ParseResult {
 
 export function extractAndParseJSON(response: string, logPrefix: string = '[JSON Parser]'): ParseResult {
   console.log(`${logPrefix} Attempting to extract JSON from response (length: ${response.length})`)
-  console.log(`${logPrefix} First 500 chars:`, response.substring(0, 500))
-  console.log(`${logPrefix} Last 200 chars:`, response.substring(Math.max(0, response.length - 200)))
 
   let jsonString: string | null = null
 
@@ -80,7 +78,6 @@ export function extractAndParseJSON(response: string, logPrefix: string = '[JSON
 
   if (!jsonString) {
     console.error(`${logPrefix} No JSON found in response`)
-    console.error(`${logPrefix} Full response:`, response)
     return {
       success: false,
       error: 'No JSON object found in AI response'

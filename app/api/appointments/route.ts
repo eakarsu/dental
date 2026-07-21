@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
 
-    const where: any = {}
+    const where: any = { patient: { clinicId: session.user.clinicId } }
     if (patientId) where.patientId = patientId
     if (dentistId) where.dentistId = dentistId
     if (status) where.status = status
@@ -82,12 +82,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    console.log('Creating appointment with data:', body)
     const validatedData = appointmentSchema.parse(body)
 
     // Verify patient exists
-    const patient = await prisma.patient.findUnique({
-      where: { id: validatedData.patientId },
+    const patient = await prisma.patient.findFirst({
+      where: { id: validatedData.patientId, clinicId: session.user.clinicId },
     })
     if (!patient) {
       return NextResponse.json(
@@ -107,14 +106,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(appointment, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('Validation error:', error.errors)
+      console.error('Validation error:', error.issues)
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }
     console.error('Error creating appointment:', error)
-    console.error('Error details:', JSON.stringify(error, null, 2))
     return NextResponse.json(
       { error: 'Internal server error', details: (error as Error).message },
       { status: 500 }
