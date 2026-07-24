@@ -60,6 +60,19 @@ model User {
   @@unique([clinicId, email])
 }
 
+model AiRuntimeResult {
+  id        String   @id @default(cuid())
+  clinicId  String
+  userId    String
+  feature   String
+  input     Json
+  output    String   @db.Text
+  model     String
+  createdAt DateTime @default(now())
+
+  @@index([clinicId, createdAt])
+}
+
 // ===== Patient Management =====
 
 model Patient {

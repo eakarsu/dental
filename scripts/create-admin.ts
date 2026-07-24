@@ -23,18 +23,17 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) })
 
 async function main() {
-  const existing = await prisma.user.findUnique({ where: { email: adminEmail }, select: { id: true } })
-  if (existing) throw new Error(`Refusing to replace existing account for ${adminEmail}`)
-
   const clinic = await prisma.clinic.upsert({
     where: { id: 'runtime-acceptance-clinic' },
     update: {},
     create: { id: 'runtime-acceptance-clinic', name: 'Runtime Acceptance Clinic' },
   })
-  await prisma.user.create({
-    data: {
+  await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: { password: await bcrypt.hash(adminPassword, 10), firstName, lastName, role: UserRole.ADMIN, clinicId: clinic.id, isActive: true },
+    create: {
       email: adminEmail,
-      password: await bcrypt.hash(adminPassword, 12),
+      password: await bcrypt.hash(adminPassword, 10),
       firstName,
       lastName,
       role: UserRole.ADMIN,
@@ -42,7 +41,7 @@ async function main() {
       isActive: true,
     },
   })
-  console.log(`Created initial administrator ${adminEmail}`)
+  console.log(`Provisioned initial administrator ${adminEmail}`)
 }
 
 main()

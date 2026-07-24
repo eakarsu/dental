@@ -6,7 +6,9 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Public routes that don't require authentication
-  const publicPaths = ['/login', '/logout', '/api/auth']
+  // This AI endpoint performs its own session check so API clients receive a
+  // machine-readable 401 instead of an HTML login redirect.
+  const publicPaths = ['/login', '/logout', '/api/auth', '/api/ai/runtime-readiness']
   const isPublicPath = publicPaths.some((path) => pathname.startsWith(path))
 
   // Static files and Next.js internals
