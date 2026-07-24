@@ -8,6 +8,12 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
+function requireDemoPassword() {
+  const password = process.env.DEMO_PASSWORD || process.env.SEED_DEMO_PASSWORD || process.env.DEMO_SEED_PASSWORD || '';
+  if (password.length < 12 || password.length > 1024) throw new Error('DEMO_PASSWORD must contain 12-1024 characters');
+  return password;
+}
+
 async function main() {
   console.log('🌱 Starting database seed...')
 
@@ -23,7 +29,7 @@ async function main() {
   })
 
   // Create Users
-  const hashedPassword = await bcrypt.hash('password123', 10)
+  const hashedPassword = await bcrypt.hash(requireDemoPassword(), 10)
 
   await prisma.user.upsert({
     where: { email: 'dentist@isolation.invalid' },
@@ -477,11 +483,11 @@ async function main() {
 
   console.log('🎉 Seed completed successfully!')
   console.log('\n📝 Demo Users:')
-  console.log('  Admin: admin@dentalclinic.com / password123')
-  console.log('  Receptionist: receptionist@dentalclinic.com / password123')
-  console.log('  Dentist: dr.smith@dentalclinic.com / password123')
-  console.log('  Dentist: dr.williams@dentalclinic.com / password123')
-  console.log('  Hygienist: hygienist@dentalclinic.com / password123')
+  console.log('Demo login users provisioned from the local environment.');
+  console.log('Demo login users provisioned from the local environment.');
+  console.log('Demo login users provisioned from the local environment.');
+  console.log('Demo login users provisioned from the local environment.');
+  console.log('Demo login users provisioned from the local environment.');
 }
 
 main()
