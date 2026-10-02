@@ -23,15 +23,11 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-
+  const performSignIn = async (loginEmail: string, loginPassword: string) => {
     try {
       const result = await signIn('credentials', {
-        email,
-        password,
+        email: loginEmail,
+        password: loginPassword,
         redirect: false,
       })
 
@@ -61,6 +57,27 @@ export default function LoginPage() {
       setError('An error occurred. Please try again.')
       setLoading(false)
     }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    await performSignIn(email, password)
+  }
+
+  const handleDemoLogin = async () => {
+    const demoEmail = process.env.NEXT_PUBLIC_DEMO_EMAIL || ''
+    const demoPassword = process.env.NEXT_PUBLIC_DEMO_PASSWORD || ''
+    if (!demoEmail || !demoPassword) {
+      setError('Demo credentials are not configured.')
+      return
+    }
+    setEmail(demoEmail)
+    setPassword(demoPassword)
+    setError('')
+    setLoading(true)
+    await performSignIn(demoEmail, demoPassword)
   }
 
   return (
@@ -115,8 +132,8 @@ export default function LoginPage() {
 
                   <button
                     type="button"
-                    onClick={() => { setEmail(process.env.NEXT_PUBLIC_DEMO_EMAIL || ''); setPassword(process.env.NEXT_PUBLIC_DEMO_PASSWORD || ''); }}
-                    disabled={!process.env.NEXT_PUBLIC_DEMO_EMAIL || !process.env.NEXT_PUBLIC_DEMO_PASSWORD}
+                    onClick={handleDemoLogin}
+                    disabled={!process.env.NEXT_PUBLIC_DEMO_EMAIL || !process.env.NEXT_PUBLIC_DEMO_PASSWORD || loading}
                     aria-label="Auto Fill Demo Credentials"
                     style={{ width: '100%', marginBottom: '12px', padding: '10px 14px', borderRadius: '8px', border: '1px solid currentColor', background: 'transparent', cursor: 'pointer' }}
                   >
