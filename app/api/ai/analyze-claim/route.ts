@@ -1,3 +1,5 @@
+import { extractAndParseJSON } from '@/lib/json-parser'
+import { withDentalAI } from '@/lib/dental-ai-runtime'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { callOpenRouter } from '@/lib/openrouter'
@@ -12,12 +14,12 @@ const requestSchema = z.object({
   medicalNecessity: z.string().optional(),
 })
 
-export async function POST(request: NextRequest) {
+async function nativePOST(request: NextRequest) {
   try {
-    console.log('[Analyze Claim] API endpoint called')
+
     const session = await auth()
     if (!session) {
-      console.error('[Analyze Claim] Unauthorized - no session')
+
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -47,7 +49,6 @@ Provide analysis in JSON format:
 
 Respond with ONLY valid JSON.`
 
-    console.log('[Analyze Claim] Calling OpenRouter API...')
     const response = await callOpenRouter([
       {
         role: 'system',
@@ -56,99 +57,25 @@ Respond with ONLY valid JSON.`
       { role: 'user', content: prompt }
     ], { temperature: 0.3 })
 
-    console.log('[Analyze Claim] OpenRouter response received (length:', response.length, ')')
+    const parsed = extractAndParseJSON(response)
+    if(!parsed.success)return NextResponse.json({error:'Incomplete claims response'},{status:502})
+    return NextResponse.json(parsed.data)
 
-    // Try multiple extraction strategies
-    let jsonString = null
-
-    // Strategy 1: Look for code blocks first
-    const codeBlockMatch = response.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
-    if (codeBlockMatch) {
-      console.log('[Analyze Claim] Found JSON in code block')
-      jsonString = codeBlockMatch[1]
-    }
-
-    // Strategy 2: Try to find JSON object by counting braces
-    if (!jsonString) {
-      const firstBrace = response.indexOf('{')
-      if (firstBrace !== -1) {
-        let braceCount = 0
-        let inString = false
-        let escapeNext = false
-
-        for (let i = firstBrace; i < response.length; i++) {
-          const char = response[i]
-
-          if (escapeNext) {
-            escapeNext = false
-            continue
-          }
-
-          if (char === '\\') {
-            escapeNext = true
-            continue
-          }
-
-          if (char === '"') {
-            inString = !inString
-            continue
-          }
-
-          if (!inString) {
-            if (char === '{') braceCount++
-            if (char === '}') {
-              braceCount--
-              if (braceCount === 0) {
-                jsonString = response.substring(firstBrace, i + 1)
-                console.log('[Analyze Claim] Extracted JSON by brace matching, length:', jsonString.length)
-                break
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // Strategy 3: Fallback to greedy match
-    if (!jsonString) {
-      const greedyMatch = response.match(/\{[\s\S]*\}/)
-      if (greedyMatch) {
-        console.log('[Analyze Claim] Using greedy match as fallback')
-        jsonString = greedyMatch[0]
-      }
-    }
-
-    if (jsonString) {
-      console.log('[Analyze Claim] Attempting to parse JSON, length:', jsonString.length)
-      try {
-        const analysis = JSON.parse(jsonString)
-        console.log('[Analyze Claim] Analysis parsed successfully')
-        return NextResponse.json(analysis)
-      } catch (parseError) {
-        console.error('[Analyze Claim] JSON parse error:', parseError instanceof Error ? parseError.message : 'Unknown parse error')
-        console.error('[Analyze Claim] Failed JSON string (first 500 chars):', jsonString.substring(0, 500))
-        return NextResponse.json({
-          error: 'Failed to parse AI response',
-          details: parseError instanceof Error ? parseError.message : 'Invalid JSON format'
-        }, { status: 500 })
-      }
-    }
-
-    console.error('[Analyze Claim] Failed to extract JSON from response')
-    return NextResponse.json({ error: 'Failed to extract JSON from AI response' }, { status: 500 })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('[Analyze Claim] Validation error:', error.issues)
+
       return NextResponse.json(
         { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }
-    console.error('[Analyze Claim] Error analyzing claim:', error)
-    console.error('[Analyze Claim] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+
+
     return NextResponse.json(
       { error: 'Failed to analyze claim', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
 }
+
+export const POST = withDentalAI('analyze-claim', nativePOST)

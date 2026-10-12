@@ -1,3 +1,4 @@
+import { withDentalAI } from '@/lib/dental-ai-runtime'
 import { NextRequest, NextResponse } from 'next/server'
 import { callOpenRouter } from '@/lib/openrouter'
 import { z } from 'zod'
@@ -16,7 +17,7 @@ const requestSchema = z.object({
   }).optional(),
 })
 
-export async function POST(request: NextRequest) {
+async function nativePOST(request: NextRequest) {
   try {
     const session = await auth()
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -71,7 +72,6 @@ Respond naturally and helpfully to the patient's question.`
       content: data.question
     })
 
-    console.log('[chatbot] Calling OpenRouter API...')
     let response: string
     try {
       response = await callOpenRouter(messages, {
@@ -79,17 +79,15 @@ Respond naturally and helpfully to the patient's question.`
         max_tokens: 800
       })
     } catch (apiError) {
-      console.error('[chatbot] OpenRouter API call failed:', apiError)
+
       return NextResponse.json({
         error: 'AI service temporarily unavailable',
         details: apiError instanceof Error ? apiError.message : 'Unknown error'
       }, { status: 503 })
     }
 
-    console.log('[chatbot] Received response, length:', response.length)
-
     if (!response || response.trim().length === 0) {
-      console.error('[chatbot] Received empty response from OpenRouter')
+
       return NextResponse.json({
         error: 'AI service returned empty response',
         details: 'The AI model did not generate any content. Please try again.'
@@ -115,7 +113,7 @@ Respond naturally and helpfully to the patient's question.`
         { status: 400 }
       )
     }
-    console.error('Error in chatbot:', error)
+
     return NextResponse.json(
       { error: 'Failed to process question' },
       { status: 500 }
@@ -172,3 +170,5 @@ function generateFollowUpQuestions(question: string): string[] {
     'How do I schedule an appointment?'
   ]
 }
+
+export const POST = withDentalAI('chatbot', nativePOST)

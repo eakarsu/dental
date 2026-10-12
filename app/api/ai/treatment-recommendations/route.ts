@@ -1,3 +1,4 @@
+import { withDentalAI } from '@/lib/dental-ai-runtime'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { callOpenRouter } from '@/lib/openrouter'
@@ -14,7 +15,7 @@ const requestSchema = z.object({
   budget: z.enum(['low', 'medium', 'high', 'no_constraint']).optional(),
 })
 
-export async function POST(request: NextRequest) {
+async function nativePOST(request: NextRequest) {
   try {
     const session = await auth()
     if (!session) {
@@ -74,7 +75,6 @@ Provide 2-4 treatment options ranked by priority. Be thorough, evidence-based, a
 
 Return ONLY valid JSON.`
 
-    console.log('[treatment-recommendations] Calling OpenRouter API...')
     let response: string
     try {
       response = await callOpenRouter([
@@ -82,17 +82,15 @@ Return ONLY valid JSON.`
         { role: 'user', content: prompt }
       ], { temperature: 0.2, max_tokens: 2500 })
     } catch (apiError) {
-      console.error('[treatment-recommendations] OpenRouter API call failed:', apiError)
+
       return NextResponse.json({
         error: 'AI service temporarily unavailable',
         details: apiError instanceof Error ? apiError.message : 'Unknown error'
       }, { status: 503 })
     }
 
-    console.log('[treatment-recommendations] Received response, length:', response.length)
-
     if (!response || response.trim().length === 0) {
-      console.error('[treatment-recommendations] Received empty response from OpenRouter')
+
       return NextResponse.json({
         error: 'AI service returned empty response',
         details: 'The AI model did not generate any content. Please try again.'
@@ -102,7 +100,7 @@ Return ONLY valid JSON.`
     const parseResult = extractAndParseJSON(response, '[treatment-recommendations]')
 
     if (parseResult.success) {
-      console.log('[treatment-recommendations] Successfully parsed recommendations')
+
       return NextResponse.json({
         ...parseResult.data,
         diagnosis: data.diagnosis,
@@ -111,7 +109,6 @@ Return ONLY valid JSON.`
       })
     }
 
-    console.error('[treatment-recommendations] Failed to parse AI response:', parseResult.error)
     return NextResponse.json({
       error: 'Failed to parse AI response',
       details: parseResult.error
@@ -123,10 +120,12 @@ Return ONLY valid JSON.`
         { status: 400 }
       )
     }
-    console.error('Error generating treatment recommendations:', error)
+
     return NextResponse.json(
       { error: 'Failed to generate treatment recommendations' },
       { status: 500 }
     )
   }
 }
+
+export const POST = withDentalAI('treatment-recommendations', nativePOST)

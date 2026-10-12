@@ -1,3 +1,4 @@
+import { withDentalAI } from '@/lib/dental-ai-runtime'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { callOpenRouter } from '@/lib/openrouter'
@@ -9,12 +10,12 @@ const requestSchema = z.object({
   months: z.number().min(1).max(12).optional().default(3),
 })
 
-export async function POST(request: NextRequest) {
+async function nativePOST(request: NextRequest) {
   try {
-    console.log('[Revenue Forecast] API endpoint called')
+
     const session = await auth()
     if (!session) {
-      console.error('[Revenue Forecast] Unauthorized - no session')
+
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -157,7 +158,6 @@ Provide realistic forecasts. Be data-driven but account for uncertainty.
 
 Return ONLY valid JSON.`
 
-    console.log('[revenue-forecast] Calling OpenRouter API...')
     const response = await callOpenRouter([
       { role: 'system', content: 'You are a JSON-generating API. You MUST respond with ONLY valid, well-formed JSON. NO additional text, explanations, or markdown. You are a financial analytics AI specializing in healthcare practice revenue forecasting.' },
       { role: 'user', content: prompt }
@@ -166,7 +166,7 @@ Return ONLY valid JSON.`
     const parseResult = extractAndParseJSON(response, '[revenue-forecast]')
 
     if (parseResult.success) {
-      console.log('[revenue-forecast] Successfully parsed forecast')
+
       return NextResponse.json({
         ...parseResult.data,
         historicalData: revenueData,
@@ -181,24 +181,25 @@ Return ONLY valid JSON.`
       })
     }
 
-    console.error('[revenue-forecast] Failed to parse AI response:', parseResult.error)
     return NextResponse.json({
       error: 'Failed to parse AI response',
       details: parseResult.error
     }, { status: 500 })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('[Revenue Forecast] Validation error:', error.issues)
+
       return NextResponse.json(
         { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }
-    console.error('[Revenue Forecast] Error generating revenue forecast:', error)
-    console.error('[Revenue Forecast] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+
+
     return NextResponse.json(
       { error: 'Failed to generate revenue forecast', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
 }
+
+export const POST = withDentalAI('revenue-forecast', nativePOST)

@@ -1,6 +1,9 @@
 'use client'
+import DentalAIPresetButtons from '@/components/DentalAIPresetButtons'
 
-import { useState, useEffect, useMemo } from 'react'
+
+import { useDentalAILauncher } from '@/lib/dental-ai-launcher'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Box, Button, Typography, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, GridLegacy as Grid, Chip, Autocomplete, Alert, CircularProgress } from '@mui/material'
 import { Calendar, momentLocalizer, View } from 'react-big-calendar'
 import moment from 'moment'
@@ -33,13 +36,28 @@ interface CalendarEvent {
 }
 
 export default function AppointmentsPage() {
+  const openAI = useDentalAILauncher()
   const [appointments, setAppointments] = useState<CalendarEvent[]>([])
+  const [loadErrors, setLoadErrors] = useState<Record<string, string>>({})
+  const loadVersion = useRef(0)
+  const recordLoadError = (key: string, message: string) => setLoadErrors(previous => ({ ...previous, [key]: message }))
   const [view, setView] = useState<View>('week')
   const [date, setDate] = useState(new Date())
   const [openDialog, setOpenDialog] = useState(false)
   const [openViewDialog, setOpenViewDialog] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<any>(null)
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null)
+  const [detailMode, setDetailMode] = useState<'view' | 'edit'>('view')
+  const [detailBusy, setDetailBusy] = useState(false)
+  const [detailError, setDetailError] = useState('')
+  const [deleteArmed, setDeleteArmed] = useState(false)
+  const [detailDraft, setDetailDraft] = useState({
+    type: 'CHECKUP',
+    status: 'SCHEDULED',
+    reason: '',
+    notes: '',
+    roomNumber: '',
+  })
   const [patients, setPatients] = useState<Patient[]>([])
   const [dentists, setDentists] = useState<Dentist[]>([])
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
@@ -67,11 +85,14 @@ export default function AppointmentsPage() {
 
   const fetchPatients = async () => {
     try {
-      const response = await fetch('/api/patients')
+      const response = await fetch('/api/patients?limit=100')
       const data = await response.json()
-      setPatients(data.patients || [])
+      if (!response.ok) throw new Error(data.error || 'Unable to load patients')
+      if (!Array.isArray(data.patients)) throw new Error('Unable to load patients: invalid response')
+      setPatients(data.patients)
+      recordLoadError('patients', '')
     } catch (error) {
-      console.error('Error fetching patients:', error)
+      recordLoadError('patients', error instanceof Error ? error.message : 'Unable to load patients')
     }
   }
 
@@ -79,13 +100,17 @@ export default function AppointmentsPage() {
     try {
       const response = await fetch('/api/users?role=DENTIST')
       const data = await response.json()
-      setDentists(data.users || [])
+      if (!response.ok) throw new Error(data.error || 'Unable to load dentists')
+      if (!Array.isArray(data.users)) throw new Error('Unable to load dentists: invalid response')
+      setDentists(data.users)
+      recordLoadError('dentists', '')
     } catch (error) {
-      console.error('Error fetching dentists:', error)
+      recordLoadError('dentists', error instanceof Error ? error.message : 'Unable to load dentists')
     }
   }
 
   const fetchAppointments = async () => {
+    const version = ++loadVersion.current
     try {
       const startDate = moment(date).startOf(view as any).toISOString()
       const endDate = moment(date).endOf(view as any).toISOString()
@@ -95,6 +120,8 @@ export default function AppointmentsPage() {
       )
       const data = await response.json()
 
+      if (!response.ok) throw new Error(data.error || 'Unable to load appointments')
+      if (!Array.isArray(data)) throw new Error('Unable to load appointments: invalid response')
       const events: CalendarEvent[] = data.map((apt: any) => ({
         id: apt.id,
         title: `${apt.patient.firstName} ${apt.patient.lastName} - ${apt.type}`,
@@ -103,9 +130,9 @@ export default function AppointmentsPage() {
         resource: apt,
       }))
 
-      setAppointments(events)
+      if (version === loadVersion.current) { setAppointments(events); recordLoadError('appointments', '') }
     } catch (error) {
-      console.error('Error fetching appointments:', error)
+      if (version === loadVersion.current) recordLoadError('appointments', error instanceof Error ? error.message : 'Unable to load appointments')
     }
   }
 
@@ -125,8 +152,82 @@ export default function AppointmentsPage() {
   }
 
   const handleSelectEvent = (event: CalendarEvent) => {
-    setSelectedAppointment(event.resource)
+    const appointment = event.resource
+    setSelectedAppointment(appointment)
+    setDetailDraft({
+      type: appointment.type,
+      status: appointment.status,
+      reason: appointment.reason || '',
+      notes: appointment.notes || '',
+      roomNumber: appointment.roomNumber || '',
+    })
+    setDetailMode('view')
+    setDetailError('')
+    setDeleteArmed(false)
     setOpenViewDialog(true)
+  }
+
+  const closeDetail = () => {
+    if (detailBusy) return
+    setOpenViewDialog(false)
+    setSelectedAppointment(null)
+    setDetailMode('view')
+    setDetailError('')
+    setDeleteArmed(false)
+  }
+
+  const handleSaveDetail = async () => {
+    if (!selectedAppointment || detailBusy) return
+    setDetailBusy(true)
+    setDetailError('')
+    try {
+      const response = await fetch(`/api/appointments/${selectedAppointment.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(detailDraft),
+      })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Unable to update appointment')
+      setSelectedAppointment(body)
+      setAppointments(current => current.map(event => event.id === body.id ? {
+        ...event,
+        title: `${body.patient.firstName} ${body.patient.lastName} - ${body.type}`,
+        start: new Date(body.startTime),
+        end: new Date(body.endTime),
+        resource: body,
+      } : event))
+      setDetailMode('view')
+      setDeleteArmed(false)
+    } catch (error) {
+      setDetailError(error instanceof Error ? error.message : 'Unable to update appointment')
+    } finally {
+      setDetailBusy(false)
+    }
+  }
+
+  const handleDeleteDetail = async () => {
+    if (!selectedAppointment || detailBusy) return
+    if (!deleteArmed) {
+      setDeleteArmed(true)
+      setDetailError('')
+      return
+    }
+    setDetailBusy(true)
+    setDetailError('')
+    try {
+      const response = await fetch(`/api/appointments/${selectedAppointment.id}`, { method: 'DELETE' })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Unable to delete appointment')
+      setAppointments(current => current.filter(event => event.id !== selectedAppointment.id))
+      setOpenViewDialog(false)
+      setSelectedAppointment(null)
+      setDetailMode('view')
+      setDeleteArmed(false)
+    } catch (error) {
+      setDetailError(error instanceof Error ? error.message : 'Unable to delete appointment')
+    } finally {
+      setDetailBusy(false)
+    }
   }
 
   const handleOpenDialog = () => {
@@ -186,83 +287,11 @@ export default function AppointmentsPage() {
     }
   }
 
-  const handleGenerateCommunication = async () => {
-    if (!selectedAppointment) return
+  const handleGenerateCommunication = () => openAI('generate-communication', {sourcePatientId:formData.patientId||selectedAppointment?.patientId||selectedAppointment?.patient?.id,sourceAppointmentId:selectedAppointment?.id,type:communicationType})
 
-    setAiGenerating(true)
-    setGeneratedMessage('')
+  const handleSmartSchedule = () => openAI('smart-scheduling', {sourcePatientId:formData.patientId,patientId:formData.patientId,dentistId:formData.dentistId,treatmentType:formData.type})
 
-    try {
-      console.log('[AI Communication] Generating message...')
-      const response = await fetch('/api/ai/generate-communication', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: communicationType,
-          patientName: `${selectedAppointment.patient.firstName} ${selectedAppointment.patient.lastName}`,
-          appointmentDate: selectedAppointment.startTime,
-          treatmentType: selectedAppointment.type,
-          amountDue: selectedAppointment.amountDue,
-          lastTreatmentDate: selectedAppointment.completionDate,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to generate communication')
-      }
-
-      const data = await response.json()
-      setGeneratedMessage(data.generatedMessage)
-    } catch (error) {
-      console.error('[AI Communication] Error:', error)
-      setGeneratedMessage('Failed to generate message. Please try again.')
-    } finally {
-      setAiGenerating(false)
-    }
-  }
-
-  const handleSmartSchedule = async () => {
-    if (!selectedPatient || !formData.type) return
-
-    setSmartScheduleLoading(true)
-    try {
-      const response = await fetch('/api/ai/smart-scheduling', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          treatmentType: formData.type,
-          patientId: selectedPatient.id,
-          dentistId: selectedDentist?.id,
-        }),
-      })
-
-      if (!response.ok) throw new Error('Failed to get schedule suggestions')
-
-      const data = await response.json()
-      setScheduleSuggestions(data)
-    } catch (error) {
-      console.error('[Smart Schedule] Error:', error)
-    } finally {
-      setSmartScheduleLoading(false)
-    }
-  }
-
-  const handlePredictNoShows = async () => {
-    try {
-      const response = await fetch('/api/ai/predict-no-show', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-
-      if (!response.ok) throw new Error('Failed to predict no-shows')
-
-      const data = await response.json()
-      setNoShowPredictions(data)
-    } catch (error) {
-      console.error('[No-Show Prediction] Error:', error)
-    }
-  }
+  const handlePredictNoShows = () => openAI('predict-no-show', {})
 
   const eventStyleGetter = (event: CalendarEvent) => {
     const status = event.resource?.status
@@ -310,7 +339,8 @@ export default function AppointmentsPage() {
         </Button>
       </Box>
 
-      <Box sx={{ height: 700, bgcolor: 'white', p: 2, borderRadius: 1 }}>
+      {Object.entries(loadErrors).filter(([, message]) => message).map(([key, message]) => <Alert key={key} severity="error" sx={{ mb: 2 }} action={<Button color="inherit" onClick={() => { if (key === 'patients') void fetchPatients(); else if (key === 'dentists') void fetchDentists(); else void fetchAppointments() }}>Retry</Button>}>{message}</Alert>)}
+      {!loadErrors.appointments && <Box sx={{ height: 700, bgcolor: 'white', p: 2, borderRadius: 1 }}>
         <Calendar
           localizer={localizer}
           events={appointments}
@@ -326,7 +356,7 @@ export default function AppointmentsPage() {
           eventPropGetter={eventStyleGetter}
           style={{ height: '100%' }}
         />
-      </Box>
+      </Box>}
 
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>New Appointment</DialogTitle>
@@ -415,11 +445,13 @@ export default function AppointmentsPage() {
       </Dialog>
 
       {/* View Appointment Dialog */}
-      <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Appointment Details</DialogTitle>
+      <Dialog open={openViewDialog} onClose={closeDetail} maxWidth="sm" fullWidth>
+        <DialogTitle>{detailMode === 'edit' ? 'Edit Appointment' : 'Appointment Details'}</DialogTitle>
         <DialogContent>
           {selectedAppointment && (
-            <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid container spacing={2} sx={{ mt: 1 }} data-native-record-detail="appointment">
+              {detailError && <Grid item xs={12}><Alert severity="error">{detailError}</Alert></Grid>}
+              {deleteArmed && <Grid item xs={12}><Alert severity="warning">Delete this appointment? Confirm delete removes this native record. Related records can prevent deletion.</Alert></Grid>}
               <Grid item xs={12}>
                 <Typography variant="subtitle2" color="text.secondary">Patient</Typography>
                 <Typography variant="body1">
@@ -441,12 +473,20 @@ export default function AppointmentsPage() {
 
               <Grid item xs={12} sm={6}>
                 <Typography variant="subtitle2" color="text.secondary">Type</Typography>
-                <Chip label={selectedAppointment.type} size="small" />
+                {detailMode === 'edit' ? (
+                  <TextField fullWidth select size="small" aria-label="Appointment type" value={detailDraft.type} onChange={event => setDetailDraft(current => ({ ...current, type: event.target.value }))}>
+                    {['CHECKUP','CLEANING','CONSULTATION','FILLING','ROOT_CANAL','EXTRACTION','CROWN','BRIDGE','IMPLANT','ORTHODONTICS','EMERGENCY','FOLLOW_UP'].map(value => <MenuItem key={value} value={value}>{value.replaceAll('_', ' ')}</MenuItem>)}
+                  </TextField>
+                ) : <Chip label={selectedAppointment.type} size="small" />}
               </Grid>
 
               <Grid item xs={12} sm={6}>
                 <Typography variant="subtitle2" color="text.secondary">Status</Typography>
-                <Chip
+                {detailMode === 'edit' ? (
+                  <TextField fullWidth select size="small" aria-label="Appointment status" value={detailDraft.status} onChange={event => setDetailDraft(current => ({ ...current, status: event.target.value }))}>
+                    {['SCHEDULED','CONFIRMED','IN_PROGRESS','COMPLETED','CANCELLED','NO_SHOW'].map(value => <MenuItem key={value} value={value}>{value.replaceAll('_', ' ')}</MenuItem>)}
+                  </TextField>
+                ) : <Chip
                   label={selectedAppointment.status}
                   size="small"
                   color={
@@ -455,7 +495,7 @@ export default function AppointmentsPage() {
                     selectedAppointment.status === 'CANCELLED' ? 'error' :
                     'primary'
                   }
-                />
+                />}
               </Grid>
 
               <Grid item xs={12}>
@@ -472,24 +512,24 @@ export default function AppointmentsPage() {
                 </Typography>
               </Grid>
 
-              {selectedAppointment.reason && (
+              {(detailMode === 'edit' || selectedAppointment.reason) && (
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" color="text.secondary">Reason</Typography>
-                  <Typography variant="body1">{selectedAppointment.reason}</Typography>
+                  {detailMode === 'edit' ? <TextField fullWidth multiline minRows={2} aria-label="Appointment reason" value={detailDraft.reason} onChange={event => setDetailDraft(current => ({ ...current, reason: event.target.value }))} /> : <Typography variant="body1">{selectedAppointment.reason}</Typography>}
                 </Grid>
               )}
 
-              {selectedAppointment.notes && (
+              {(detailMode === 'edit' || selectedAppointment.notes) && (
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" color="text.secondary">Notes</Typography>
-                  <Typography variant="body1">{selectedAppointment.notes}</Typography>
+                  {detailMode === 'edit' ? <TextField fullWidth multiline minRows={2} aria-label="Appointment notes" value={detailDraft.notes} onChange={event => setDetailDraft(current => ({ ...current, notes: event.target.value }))} /> : <Typography variant="body1">{selectedAppointment.notes}</Typography>}
                 </Grid>
               )}
 
-              {selectedAppointment.roomNumber && (
+              {(detailMode === 'edit' || selectedAppointment.roomNumber) && (
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" color="text.secondary">Room Number</Typography>
-                  <Typography variant="body1">{selectedAppointment.roomNumber}</Typography>
+                  {detailMode === 'edit' ? <TextField fullWidth size="small" aria-label="Appointment room number" value={detailDraft.roomNumber} onChange={event => setDetailDraft(current => ({ ...current, roomNumber: event.target.value }))} /> : <Typography variant="body1">{selectedAppointment.roomNumber}</Typography>}
                 </Grid>
               )}
 
@@ -520,7 +560,7 @@ export default function AppointmentsPage() {
                       </TextField>
                     </Grid>
                     <Grid item xs={12} sm={4}>
-                      <Button
+                      <Box sx={{minWidth:0}}><Button
                         fullWidth
                         variant="outlined"
                         size="small"
@@ -530,7 +570,7 @@ export default function AppointmentsPage() {
                         color="secondary"
                       >
                         {aiGenerating ? 'Generating...' : 'Generate'}
-                      </Button>
+                      </Button><DentalAIPresetButtons tool="generate-communication" input={{sourcePatientId:formData.patientId||selectedAppointment?.patientId||selectedAppointment?.patient?.id,sourceAppointmentId:selectedAppointment?.id,type:communicationType}} disabled={aiGenerating}/></Box>
                     </Grid>
 
                     {generatedMessage && (
@@ -553,7 +593,9 @@ export default function AppointmentsPage() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenViewDialog(false)}>Close</Button>
+          <Button disabled={detailBusy} onClick={() => detailMode === 'edit' ? void handleSaveDetail() : setDetailMode('edit')}>{detailMode === 'edit' ? 'Save changes' : 'Edit'}</Button>
+          <Button color="error" disabled={detailBusy} onClick={() => void handleDeleteDetail()}>{deleteArmed ? 'Confirm delete' : 'Delete'}</Button>
+          <Button disabled={detailBusy} onClick={closeDetail}>Cancel</Button>
         </DialogActions>
       </Dialog>
     </Box>

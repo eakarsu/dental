@@ -38,6 +38,8 @@ const drawerWidth = 260
 
 const menuItems = [
   { title: 'Dashboard', icon: <DashboardIcon />, href: '/dashboard' },
+  { title: 'AI Studio', icon: <FactCheckIcon />, href: '/dashboard/ai-studio' },
+  { title: 'AI Operations', icon: <FactCheckIcon />, href: '/dashboard/ai-operations' },
   { title: 'Patients', icon: <PeopleIcon />, href: '/dashboard/patients' },
   { title: 'Appointments', icon: <EventIcon />, href: '/dashboard/appointments' },
   { title: 'Treatments', icon: <MedicalServicesIcon />, href: '/dashboard/treatments' },

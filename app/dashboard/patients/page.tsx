@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
+  Alert,
   Box,
   Button,
   TextField,
@@ -21,26 +22,33 @@ import { format } from 'date-fns'
 
 export default function PatientsPage() {
   const router = useRouter()
-  const [patients, setPatients] = useState([])
+  const [patients, setPatients] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const loadVersion = useRef(0)
   const [search, setSearch] = useState('')
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 15 })
+  const [total, setTotal] = useState(0)
 
   useEffect(() => {
     fetchPatients()
-  }, [search])
+  }, [search, paginationModel.page, paginationModel.pageSize])
 
   const fetchPatients = async () => {
+    const version = ++loadVersion.current
+    setLoading(true)
+    setLoadError('')
     try {
-      const url = search
-        ? `/api/patients?search=${encodeURIComponent(search)}`
-        : '/api/patients'
-      const response = await fetch(url)
-      const data = await response.json()
-      setPatients(data.patients || [])
+      const response = await fetch(`/api/patients?page=${paginationModel.page + 1}&limit=${paginationModel.pageSize}${search ? `&search=${encodeURIComponent(search)}` : ''}`, { cache: 'no-store' })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Unable to load patients')
+      const rows = body.patients
+      if (!Array.isArray(rows) || !Number.isInteger(body.pagination?.total) || body.pagination.total < 0) throw new Error('Unable to load patients: invalid response')
+      if (version === loadVersion.current) { setPatients(rows); setTotal(body.pagination.total) }
     } catch (error) {
-      console.error('Error fetching patients:', error)
+      if (version === loadVersion.current) setLoadError(error instanceof Error ? error.message : 'Unable to load patients')
     } finally {
-      setLoading(false)
+      if (version === loadVersion.current) setLoading(false)
     }
   }
 
@@ -139,7 +147,7 @@ export default function PatientsPage() {
           fullWidth
           placeholder="Search patients by name, email, or phone..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setPaginationModel(previous => ({ ...previous, page: 0 })) }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -150,15 +158,20 @@ export default function PatientsPage() {
         />
       </Paper>
 
-      <Paper sx={{ height: 600, width: '100%' }}>
+      {loadError && <Alert severity="error" sx={{ mb: 2 }} action={<Button color="inherit" onClick={fetchPatients} disabled={loading}>Retry</Button>}>{loadError}</Alert>}
+      {!loadError && <Paper sx={{ height: 600, width: '100%' }}>
         <DataGrid
           rows={patients}
           columns={columns}
           loading={loading}
-          pageSizeOptions={[10, 25, 50]}
+          pageSizeOptions={[15, 25, 50]}
+          paginationMode="server"
+          rowCount={total}
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
           initialState={{
             pagination: {
-              paginationModel: { pageSize: 10 },
+              paginationModel: { pageSize: 15 },
             },
           }}
           disableRowSelectionOnClick
@@ -168,7 +181,7 @@ export default function PatientsPage() {
             },
           }}
         />
-      </Paper>
+      </Paper>}
     </Box>
   )
 }

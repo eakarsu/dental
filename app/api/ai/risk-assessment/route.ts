@@ -1,3 +1,4 @@
+import { withDentalAI } from '@/lib/dental-ai-runtime'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { callOpenRouter } from '@/lib/openrouter'
@@ -18,7 +19,7 @@ const requestSchema = z.object({
   diabetic: z.boolean().optional(),
 })
 
-export async function POST(request: NextRequest) {
+async function nativePOST(request: NextRequest) {
   try {
     const session = await auth()
     if (!session) {
@@ -87,7 +88,6 @@ Be thorough, evidence-based, and err on the side of caution. Flag any high-risk 
 
 Return ONLY valid JSON.`
 
-    console.log('[risk-assessment] Calling OpenRouter API...')
     let response: string
     try {
       response = await callOpenRouter([
@@ -95,17 +95,15 @@ Return ONLY valid JSON.`
         { role: 'user', content: prompt }
       ], { temperature: 0.2, max_tokens: 2500 })
     } catch (apiError) {
-      console.error('[risk-assessment] OpenRouter API call failed:', apiError)
+
       return NextResponse.json({
         error: 'AI service temporarily unavailable',
         details: apiError instanceof Error ? apiError.message : 'Unknown error'
       }, { status: 503 })
     }
 
-    console.log('[risk-assessment] Received response, length:', response.length)
-
     if (!response || response.trim().length === 0) {
-      console.error('[risk-assessment] Received empty response from OpenRouter')
+
       return NextResponse.json({
         error: 'AI service returned empty response',
         details: 'The AI model did not generate any content. Please try again.'
@@ -115,7 +113,7 @@ Return ONLY valid JSON.`
     const parseResult = extractAndParseJSON(response, '[risk-assessment]')
 
     if (parseResult.success) {
-      console.log('[risk-assessment] Successfully parsed assessment')
+
       return NextResponse.json({
         ...parseResult.data,
         patientAge: data.patientAge,
@@ -125,7 +123,6 @@ Return ONLY valid JSON.`
       })
     }
 
-    console.error('[risk-assessment] Failed to parse AI response:', parseResult.error)
     return NextResponse.json({
       error: 'Failed to parse AI response',
       details: parseResult.error
@@ -137,10 +134,12 @@ Return ONLY valid JSON.`
         { status: 400 }
       )
     }
-    console.error('Error generating risk assessment:', error)
+
     return NextResponse.json(
       { error: 'Failed to generate risk assessment' },
       { status: 500 }
     )
   }
 }
+
+export const POST = withDentalAI('risk-assessment', nativePOST)

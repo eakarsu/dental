@@ -47,6 +47,9 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [recipients, setRecipients] = useState<Array<{ id: string; firstName: string; lastName: string; role: string }>>([])
   const [error, setError] = useState('')
+  const [loadError, setLoadError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [retry, setRetry] = useState(0)
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
   const [openNewMessage, setOpenNewMessage] = useState(false)
   const [newMessage, setNewMessage] = useState({
@@ -56,15 +59,20 @@ export default function MessagesPage() {
   })
 
   useEffect(() => {
-    Promise.all([fetch('/api/messages'), fetch('/api/users')])
+    let active = true
+    setLoading(true)
+    setLoadError('')
+    Promise.all([fetch('/api/messages', { cache: 'no-store' }), fetch('/api/users', { cache: 'no-store' })])
       .then(async ([messageResponse, userResponse]) => {
         const [messageBody, userBody] = await Promise.all([messageResponse.json(), userResponse.json()])
         if (!messageResponse.ok || !userResponse.ok) throw new Error(messageBody.error ?? userBody.error ?? 'Unable to load messages')
-        setMessages(messageBody.messages)
-        setRecipients(userBody.users)
+        if (!Array.isArray(messageBody.messages) || !Array.isArray(userBody.users)) throw new Error('Unable to load messages: invalid response')
+        if (active) { setMessages(messageBody.messages); setRecipients(userBody.users) }
       })
-      .catch((reason) => setError(reason instanceof Error ? reason.message : 'Unable to load messages'))
-  }, [])
+      .catch((reason) => { if (active) setLoadError(reason instanceof Error ? reason.message : 'Unable to load messages') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [retry])
 
   const handleMarkAsRead = async (messageId: string) => {
     const response = await fetch(`/api/messages/${messageId}`, { method: 'PATCH' })
@@ -99,7 +107,7 @@ export default function MessagesPage() {
             Messages
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {unreadCount} unread message{unreadCount !== 1 ? 's' : ''}
+            {loading ? 'Loading messages…' : loadError ? 'Messages unavailable' : `${unreadCount} unread message${unreadCount !== 1 ? 's' : ''}`}
           </Typography>
         </Box>
         <Button
@@ -112,7 +120,8 @@ export default function MessagesPage() {
       </Box>
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
-      <Grid container spacing={3}>
+      {loadError && <Alert severity="error" sx={{ mb: 2 }} action={<Button color="inherit" disabled={loading} onClick={() => setRetry(value => value + 1)}>Retry</Button>}>{loadError}</Alert>}
+      {!loadError && <Grid container spacing={3}>
         {/* Message List */}
         <Grid item xs={12} md={5}>
           <Paper sx={{ height: 600, overflow: 'auto' }}>
@@ -224,7 +233,7 @@ export default function MessagesPage() {
             )}
           </Paper>
         </Grid>
-      </Grid>
+      </Grid>}
 
       {/* New Message Dialog */}
       <Dialog

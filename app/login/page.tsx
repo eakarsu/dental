@@ -1,8 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import {
   Box,
   Card,
@@ -17,22 +16,35 @@ import {
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [credentialNotice, setCredentialNotice] = useState('')
+  const [demoAvailable, setDemoAvailable] = useState(false)
+  const [demoStatusLoading, setDemoStatusLoading] = useState(true)
 
-  const performSignIn = async (loginEmail: string, loginPassword: string) => {
-    try {
-      const result = await signIn('credentials', {
-        email: loginEmail,
-        password: loginPassword,
-        redirect: false,
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch('/api/auth/demo-status', { cache: 'no-store', signal: controller.signal })
+      .then(async response => {
+        const body = await response.json()
+        if (!response.ok || typeof body.available !== 'boolean') throw new Error('Demo status unavailable')
+        setDemoAvailable(body.available)
       })
+      .catch(() => { if (!controller.signal.aborted) setDemoAvailable(false) })
+      .finally(() => { if (!controller.signal.aborted) setDemoStatusLoading(false) })
+    return () => controller.abort()
+  }, [])
+
+  const performSignIn = async (loginEmail: string, loginPassword: string, provider: 'credentials' | 'demo' = 'credentials') => {
+    try {
+      const result = provider === 'demo'
+        ? await signIn('demo', { redirect: false })
+        : await signIn('credentials', { email: loginEmail, password: loginPassword, redirect: false })
 
       if (result?.error) {
-        setError('Invalid email or password')
+        setError(provider === 'demo' ? 'Demo login is unavailable. Use your account credentials.' : 'Invalid email or password')
         setLoading(false)
       } else if (result?.ok) {
         // Wait a bit for the session cookie to be set
@@ -62,22 +74,17 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setCredentialNotice('')
     setLoading(true)
     await performSignIn(email, password)
   }
 
-  const handleDemoLogin = async () => {
-    const demoEmail = process.env.NEXT_PUBLIC_DEMO_EMAIL || ''
-    const demoPassword = process.env.NEXT_PUBLIC_DEMO_PASSWORD || ''
-    if (!demoEmail || !demoPassword) {
-      setError('Demo credentials are not configured.')
-      return
-    }
-    setEmail(demoEmail)
-    setPassword(demoPassword)
+  const handleDemoSignIn = async () => {
+    if (!demoAvailable || loading) return
     setError('')
+    setCredentialNotice('Signing in to the configured local demo clinic…')
     setLoading(true)
-    await performSignIn(demoEmail, demoPassword)
+    await performSignIn('', '', 'demo')
   }
 
   return (
@@ -113,7 +120,7 @@ export default function LoginPage() {
                     label="Email"
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setCredentialNotice('') }}
                     required
                     fullWidth
                     autoComplete="email"
@@ -124,21 +131,29 @@ export default function LoginPage() {
                     label="Password"
                     type="password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => { setPassword(e.target.value); setCredentialNotice('') }}
                     required
                     fullWidth
                     autoComplete="current-password"
                   />
 
-                  <button
+                  <Alert severity="info">
+                    {credentialNotice || (demoStatusLoading
+                      ? 'Checking configured demo access…'
+                      : demoAvailable
+                        ? 'Use Demo login for one-click access to the configured local demo clinic. Credentials remain server-side.'
+                        : 'Configured demo access is unavailable. Enter your account credentials.')}
+                  </Alert>
+                  <Button
                     type="button"
-                    onClick={handleDemoLogin}
-                    disabled={!process.env.NEXT_PUBLIC_DEMO_EMAIL || !process.env.NEXT_PUBLIC_DEMO_PASSWORD || loading}
-                    aria-label="Auto Fill Demo Credentials"
-                    style={{ width: '100%', marginBottom: '12px', padding: '10px 14px', borderRadius: '8px', border: '1px solid currentColor', background: 'transparent', cursor: 'pointer' }}
+                    variant="contained"
+                    size="large"
+                    fullWidth
+                    onClick={handleDemoSignIn}
+                    disabled={!demoAvailable || demoStatusLoading || loading}
                   >
-                    Auto Fill Demo Credentials
-                  </button>
+                    {loading ? 'Signing in…' : demoStatusLoading ? 'Checking Demo login…' : 'Demo login'}
+                  </Button>
                   <Button
                     type="submit"
                     variant="contained"
@@ -152,20 +167,6 @@ export default function LoginPage() {
                 </Stack>
               </form>
 
-              <Box sx={{ mt: 3, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                <Typography variant="caption" display="block" gutterBottom>
-                  Demo Users:
-                </Typography>
-                <Typography variant="caption" display="block" color="text.secondary">
-                  admin@dentalclinic.com / password123
-                </Typography>
-                <Typography variant="caption" display="block" color="text.secondary">
-                  dr.smith@dentalclinic.com / password123
-                </Typography>
-                <Typography variant="caption" display="block" color="text.secondary">
-                  receptionist@dentalclinic.com / password123
-                </Typography>
-              </Box>
             </Stack>
           </CardContent>
         </Card>

@@ -1,10 +1,11 @@
+import { withDentalAI } from '@/lib/dental-ai-runtime'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { callOpenRouter } from '@/lib/openrouter'
 import { extractAndParseJSON } from '@/lib/json-parser'
 import { prisma } from '@/lib/prisma'
 
-export async function GET(request: NextRequest) {
+async function nativeGET(request: NextRequest) {
   try {
     const session = await auth()
     if (!session) {
@@ -86,7 +87,6 @@ Format your response as a JSON array of insights, each with:
 
 Return ONLY valid JSON, no additional text.`
 
-    console.log('[dashboard-insights] Calling OpenRouter API...')
     const response = await callOpenRouter([
       { role: 'system', content: 'You are a JSON-generating API. You MUST respond with ONLY valid, well-formed JSON. NO additional text, explanations, or markdown. You are a dental practice analytics expert.' },
       { role: 'user', content: prompt }
@@ -95,20 +95,21 @@ Return ONLY valid JSON, no additional text.`
     const parseResult = extractAndParseJSON(response, '[dashboard-insights]')
 
     if (parseResult.success) {
-      console.log('[dashboard-insights] Successfully parsed insights')
+
       return NextResponse.json({ insights: parseResult.data })
     }
 
-    console.error('[dashboard-insights] Failed to parse AI response:', parseResult.error)
     return NextResponse.json({
       error: 'Failed to parse AI response',
       details: parseResult.error
     }, { status: 500 })
   } catch (error) {
-    console.error('Error generating insights:', error)
+
     return NextResponse.json(
       { error: 'Failed to generate insights' },
       { status: 500 }
     )
   }
 }
+
+export const GET = withDentalAI('dashboard-insights', nativeGET)

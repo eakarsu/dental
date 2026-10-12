@@ -20,6 +20,23 @@ declare module 'next-auth' {
   }
 }
 
+type DemoCredentials = { email: string; password: string }
+
+function configuredDemoCredentials(): DemoCredentials | null {
+  const prefixes = ['PROVISION_ADMIN', 'BOOTSTRAP_ADMIN', 'SEED_ADMIN', 'SEED_USER', 'DEMO', 'ADMIN', 'DEFAULT']
+  for (const prefix of prefixes) {
+    const email = process.env[`${prefix}_EMAIL`]?.trim()
+    const password = process.env[`${prefix}_PASSWORD`]
+    if (email && password) return { email, password }
+  }
+  return null
+}
+
+export function demoLoginAvailable() {
+  const allowed = process.env.ENABLE_DEMO_LOGIN === 'true' || process.env.NODE_ENV !== 'production'
+  return allowed && configuredDemoCredentials() !== null
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Credentials({
@@ -68,6 +85,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
         } catch (error) {
           console.error('Auth error:', error)
+          return null
+        }
+      },
+    }),
+    Credentials({
+      id: 'demo',
+      name: 'Configured demo clinic',
+      credentials: {},
+      async authorize() {
+        try {
+          if (!demoLoginAvailable()) return null
+          const configured = configuredDemoCredentials()
+          if (!configured) return null
+          const user = await prisma.user.findUnique({ where: { email: configured.email } })
+          if (!user?.isActive || !await bcrypt.compare(configured.password, user.password)) return null
+          return {
+            id: user.id,
+            email: user.email,
+            name: `${user.firstName} ${user.lastName}`,
+            role: user.role,
+            clinicId: user.clinicId,
+          }
+        } catch (error) {
+          console.error('Demo authentication failed:', error)
           return null
         }
       },

@@ -1,3 +1,4 @@
+import { withDentalAI } from '@/lib/dental-ai-runtime'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { callOpenRouter } from '@/lib/openrouter'
@@ -16,7 +17,7 @@ const requestSchema = z.object({
   additionalNotes: z.string().optional(),
 })
 
-export async function POST(request: NextRequest) {
+async function nativePOST(request: NextRequest) {
   try {
     const session = await auth()
     if (!session) {
@@ -88,10 +89,12 @@ Format it as a complete letter ready to be sent.`
         { status: 400 }
       )
     }
-    console.error('Error generating appeal letter:', error)
+
     return NextResponse.json(
       { error: 'Failed to generate appeal letter' },
       { status: 500 }
     )
   }
 }
+
+export const POST = withDentalAI('generate-appeal-letter', nativePOST)

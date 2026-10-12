@@ -1,5 +1,8 @@
 'use client'
+import DentalAIPresetButtons from '@/components/DentalAIPresetButtons'
 
+
+import { useDentalAILauncher } from '@/lib/dental-ai-launcher'
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
@@ -59,6 +62,7 @@ interface NoShowPrediction {
 }
 
 export default function AppointmentDetailPage() {
+  const openAI = useDentalAILauncher()
   const params = useParams()
   const router = useRouter()
   const [appointment, setAppointment] = useState<Appointment | null>(null)
@@ -89,52 +93,7 @@ export default function AppointmentDetailPage() {
     }
   }
 
-  const handlePredictNoShow = async () => {
-    if (!appointment) return
-
-    setPredicting(true)
-    setError('')
-
-    try {
-      console.log('[No-Show Prediction] Starting prediction for appointment:', appointment.id)
-      const response = await fetch('/api/ai/predict-no-show', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          appointmentId: appointment.id,
-        }),
-      })
-
-      console.log('[No-Show Prediction] Response status:', response.status)
-      const data = await response.json()
-
-      if (!response.ok) {
-        const errorMsg = data.error || data.details || 'Failed to predict no-show'
-        throw new Error(errorMsg)
-      }
-
-      // The API returns an array of predictions, get the first one
-      if (data.predictions && data.predictions.length > 0) {
-        const predictionData = data.predictions[0]
-        setPrediction({
-          riskLevel: predictionData.riskLevel,
-          probability: predictionData.probability,
-          riskFactors: predictionData.riskFactors,
-          recommendations: predictionData.recommendations,
-          confidenceScore: predictionData.confidenceScore,
-        })
-        setShowPredictionDialog(true)
-      } else {
-        throw new Error('No prediction data received')
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      console.error('[No-Show Prediction] Error:', errorMessage)
-      setError(`Failed to predict no-show: ${errorMessage}`)
-    } finally {
-      setPredicting(false)
-    }
-  }
+  const handlePredictNoShow = () => openAI('predict-no-show', {appointmentId:String(params.id),sourcePatientId:appointment?.patient?.id})
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -233,7 +192,7 @@ export default function AppointmentDetailPage() {
                 No-Show Risk Prediction
               </Typography>
             </Box>
-            <Button
+            <Box sx={{minWidth:0}}><Button
               variant="outlined"
               size="small"
               startIcon={predicting ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
@@ -242,7 +201,7 @@ export default function AppointmentDetailPage() {
               color="secondary"
             >
               {predicting ? 'Analyzing...' : 'Predict No-Show Risk'}
-            </Button>
+            </Button><DentalAIPresetButtons tool="predict-no-show" input={{appointmentId:String(params.id),sourcePatientId:appointment?.patient?.id}} disabled={predicting}/></Box>
           </Box>
 
           {prediction ? (

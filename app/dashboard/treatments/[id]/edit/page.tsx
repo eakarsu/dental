@@ -1,5 +1,8 @@
 'use client'
+import DentalAIPresetButtons from '@/components/DentalAIPresetButtons'
 
+
+import { useDentalAILauncher } from '@/lib/dental-ai-launcher'
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
@@ -62,6 +65,7 @@ interface Treatment {
 }
 
 export default function EditTreatmentPage() {
+  const openAI = useDentalAILauncher()
   const params = useParams()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -187,117 +191,11 @@ export default function EditTreatmentPage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleAiGenerateNotes = async () => {
-    if (!formData.treatmentName) {
-      setError('Please enter a treatment name first')
-      return
-    }
+  const handleAiGenerateNotes = () => openAI('generate-notes', {sourcePatientId:formData.patientId,sourceTreatmentId:String(params.id),treatmentType:formData.treatmentName,treatmentCode:formData.treatmentCode,toothNumber:formData.toothNumber,description:formData.description})
 
-    setAiGenerating(true)
-    setError('')
+  const handleAiSuggestCdtCode = () => openAI('suggest-cdt-code', {sourcePatientId:formData.patientId,sourceTreatmentId:String(params.id),treatmentDescription:formData.treatmentName+" "+formData.description,toothNumber:formData.toothNumber})
 
-    try {
-      const response = await fetch('/api/ai/generate-notes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          treatmentType: formData.treatmentName,
-          treatmentCode: formData.treatmentCode,
-          toothNumber: formData.toothNumber,
-          description: formData.description,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to generate notes')
-      }
-
-      const data = await response.json()
-      handleChange('notes', data.generatedNotes)
-    } catch (error) {
-      setError('Failed to generate AI notes. Please try again.')
-    } finally {
-      setAiGenerating(false)
-    }
-  }
-
-  const handleAiSuggestCdtCode = async () => {
-    console.log('[AI CDT EDIT] Button clicked!')
-    console.log('[AI CDT EDIT] Current treatmentName:', formData.treatmentName)
-
-    if (!formData.treatmentName) {
-      setError('Please enter a treatment name first')
-      return
-    }
-
-    setAiCdtGenerating(true)
-    setError('')
-
-    try {
-      console.log('[AI CDT EDIT] Making API request...')
-      const response = await fetch('/api/ai/suggest-cdt-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          treatmentDescription: formData.treatmentName + (formData.description ? ` - ${formData.description}` : ''),
-          toothNumber: formData.toothNumber,
-        }),
-      })
-
-      console.log('[AI CDT EDIT] Response status:', response.status)
-
-      if (!response.ok) {
-        throw new Error('Failed to suggest CDT code')
-      }
-
-      const data = await response.json()
-
-      handleChange('treatmentCode', data.primaryCode)
-      handleChange('treatmentName', data.primaryDescription)
-
-      console.log('[AI CDT EDIT] Fields updated successfully')
-    } catch (error) {
-      console.error('[AI CDT EDIT] Error:', error)
-      setError('Failed to suggest CDT code. Please try again.')
-    } finally {
-      setAiCdtGenerating(false)
-    }
-  }
-
-  const handleGenerateSoapNotes = async () => {
-    if (!formData.treatmentName || !formData.description) {
-      setError('Please enter treatment name and clinical findings first')
-      return
-    }
-
-    setAiSoapGenerating(true)
-    setError('')
-
-    try {
-      const response = await fetch('/api/ai/generate-soap-notes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subjective: formData.notes || '',
-          objective: formData.description,
-          treatmentType: formData.treatmentName,
-          toothNumber: formData.toothNumber,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to generate SOAP notes')
-      }
-
-      const data = await response.json()
-      handleChange('notes', data.soapNotes)
-    } catch (error) {
-      console.error('[AI SOAP EDIT] Error:', error)
-      setError('Failed to generate SOAP notes. Please try again.')
-    } finally {
-      setAiSoapGenerating(false)
-    }
-  }
+  const handleGenerateSoapNotes = () => openAI('generate-soap-notes', {sourcePatientId:formData.patientId,sourceTreatmentId:String(params.id),treatmentType:formData.treatmentName,toothNumber:formData.toothNumber})
 
   if (loading) {
     return (
@@ -379,7 +277,7 @@ export default function EditTreatmentPage() {
               <Typography variant="h6">
                 Treatment Details
               </Typography>
-              <Button
+              <Box sx={{minWidth:0}}><Button
                 size="small"
                 startIcon={<LightbulbIcon />}
                 onClick={handleAiSuggestCdtCode}
@@ -388,7 +286,7 @@ export default function EditTreatmentPage() {
                 color="secondary"
               >
                 {aiCdtGenerating ? 'Suggesting...' : 'AI Suggest CDT Code'}
-              </Button>
+              </Button><DentalAIPresetButtons tool="suggest-cdt-code" input={{sourcePatientId:formData.patientId,sourceTreatmentId:String(params.id),treatmentDescription:formData.treatmentName+" "+formData.description,toothNumber:formData.toothNumber}} disabled={aiCdtGenerating}/></Box>
             </Box>
             <Grid container spacing={2} sx={{ mb: 3 }}>
               <Grid item xs={12} sm={6}>
@@ -502,7 +400,7 @@ export default function EditTreatmentPage() {
                 Additional Notes
               </Typography>
               <Box display="flex" gap={1}>
-                <Button
+                <Box sx={{minWidth:0}}><Button
                   size="small"
                   startIcon={<AutoAwesomeIcon />}
                   onClick={handleAiGenerateNotes}
@@ -511,8 +409,8 @@ export default function EditTreatmentPage() {
                   color="secondary"
                 >
                   {aiGenerating ? 'Generating...' : 'AI Notes'}
-                </Button>
-                <Button
+                </Button><DentalAIPresetButtons tool="generate-notes" input={{sourcePatientId:formData.patientId,sourceTreatmentId:String(params.id),treatmentType:formData.treatmentName,treatmentCode:formData.treatmentCode,toothNumber:formData.toothNumber,description:formData.description}} disabled={aiGenerating}/></Box>
+                <Box sx={{minWidth:0}}><Button
                   size="small"
                   startIcon={<AutoAwesomeIcon />}
                   onClick={handleGenerateSoapNotes}
@@ -521,7 +419,7 @@ export default function EditTreatmentPage() {
                   color="secondary"
                 >
                   {aiSoapGenerating ? 'Generating...' : 'AI SOAP'}
-                </Button>
+                </Button><DentalAIPresetButtons tool="generate-soap-notes" input={{sourcePatientId:formData.patientId,sourceTreatmentId:String(params.id),treatmentType:formData.treatmentName,toothNumber:formData.toothNumber}} disabled={aiSoapGenerating}/></Box>
               </Box>
             </Box>
             <TextField

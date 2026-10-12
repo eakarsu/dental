@@ -1,3 +1,4 @@
+import { withDentalAI } from '@/lib/dental-ai-runtime'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { callOpenRouter } from '@/lib/openrouter'
@@ -12,7 +13,7 @@ const requestSchema = z.object({
   instructions: z.string().optional(),
 })
 
-export async function POST(request: NextRequest) {
+async function nativePOST(request: NextRequest) {
   try {
     const session = await auth()
     if (!session) {
@@ -89,10 +90,12 @@ Keep it personal and genuine.`
         { status: 400 }
       )
     }
-    console.error('Error generating communication:', error)
+
     return NextResponse.json(
       { error: 'Failed to generate message' },
       { status: 500 }
     )
   }
 }
+
+export const POST = withDentalAI('generate-communication', nativePOST)

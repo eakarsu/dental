@@ -1,3 +1,4 @@
+import { withDentalAI } from '@/lib/dental-ai-runtime'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { callOpenRouter } from '@/lib/openrouter'
@@ -11,7 +12,7 @@ const requestSchema = z.object({
   vitalSigns: z.string().optional(),
 })
 
-export async function POST(request: NextRequest) {
+async function nativePOST(request: NextRequest) {
   try {
     const session = await auth()
     if (!session) {
@@ -80,10 +81,12 @@ Format the notes professionally and comprehensively. Be specific and detailed.`
         { status: 400 }
       )
     }
-    console.error('Error generating SOAP notes:', error)
+
     return NextResponse.json(
       { error: 'Failed to generate SOAP notes' },
       { status: 500 }
     )
   }
 }
+
+export const POST = withDentalAI('generate-soap-notes', nativePOST)

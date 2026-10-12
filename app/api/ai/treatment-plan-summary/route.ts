@@ -1,3 +1,4 @@
+import { withDentalAI } from '@/lib/dental-ai-runtime'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { callOpenRouter } from '@/lib/openrouter'
@@ -15,12 +16,12 @@ const requestSchema = z.object({
   totalCost: z.number(),
 })
 
-export async function POST(request: NextRequest) {
+async function nativePOST(request: NextRequest) {
   try {
-    console.log('[Treatment Plan Summary] API endpoint called')
+
     const session = await auth()
     if (!session) {
-      console.error('[Treatment Plan Summary] Unauthorized - no session')
+
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -54,7 +55,6 @@ Generate a comprehensive yet easy-to-understand treatment plan summary that incl
 
 Write in a warm, reassuring, professional tone. Use simple language that a patient without medical knowledge can understand. Avoid technical jargon or explain it when necessary.`
 
-    console.log('[Treatment Plan Summary] Calling OpenRouter API...')
     let response: string
     try {
       response = await callOpenRouter([
@@ -62,17 +62,15 @@ Write in a warm, reassuring, professional tone. Use simple language that a patie
         { role: 'user', content: prompt }
       ], { temperature: 0.6, max_tokens: 2500 })
     } catch (apiError) {
-      console.error('[Treatment Plan Summary] OpenRouter API call failed:', apiError)
+
       return NextResponse.json({
         error: 'AI service temporarily unavailable',
         details: apiError instanceof Error ? apiError.message : 'Unknown error'
       }, { status: 503 })
     }
 
-    console.log('[Treatment Plan Summary] OpenRouter response received (length:', response.length, ')')
-
     if (!response || response.trim().length === 0) {
-      console.error('[Treatment Plan Summary] Received empty response from OpenRouter')
+
       return NextResponse.json({
         error: 'AI service returned empty response',
         details: 'The AI model did not generate any content. Please try again.'
@@ -88,17 +86,19 @@ Write in a warm, reassuring, professional tone. Use simple language that a patie
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('[Treatment Plan Summary] Validation error:', error.issues)
+
       return NextResponse.json(
         { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }
-    console.error('[Treatment Plan Summary] Error generating treatment plan summary:', error)
-    console.error('[Treatment Plan Summary] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+
+
     return NextResponse.json(
       { error: 'Failed to generate treatment plan summary', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
 }
+
+export const POST = withDentalAI('treatment-plan-summary', nativePOST)

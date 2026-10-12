@@ -1,5 +1,8 @@
 'use client'
+import DentalAIPresetButtons from '@/components/DentalAIPresetButtons'
 
+
+import { useDentalAILauncher } from '@/lib/dental-ai-launcher'
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
@@ -70,6 +73,7 @@ interface AIClaimAnalysis {
 }
 
 export default function ClaimDetailPage() {
+  const openAI = useDentalAILauncher()
   const params = useParams()
   const router = useRouter()
   const [claim, setClaim] = useState<Claim | null>(null)
@@ -101,93 +105,9 @@ export default function ClaimDetailPage() {
     }
   }
 
-  const handleAnalyzeClaim = async () => {
-    if (!claim || !claim.treatment) {
-      setError('Cannot analyze claim without treatment information')
-      return
-    }
+  const handleAnalyzeClaim = () => openAI('analyze-claim', {sourcePatientId:claim?.patient?.id,sourceClaimId:String(params.id)})
 
-    setAiAnalyzing(true)
-    setError('')
-
-    try {
-      console.log('[AI Analyze Claim] Starting analysis...')
-      const requestBody = {
-        treatmentCode: claim.treatment.treatmentCode,
-        treatmentName: claim.treatment.treatmentName,
-        claimedAmount: Number(claim.claimedAmount),
-        insuranceProvider: claim.insuranceProvider,
-        patientAge: claim.patient.dateOfBirth
-          ? new Date().getFullYear() - new Date(claim.patient.dateOfBirth).getFullYear()
-          : undefined,
-        medicalNecessity: claim.notes || '',
-      }
-
-      const response = await fetch('/api/ai/analyze-claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      })
-
-      console.log('[AI Analyze Claim] Response status:', response.status)
-      const data = await response.json()
-
-      if (!response.ok) {
-        const errorMsg = data.error || data.details || 'Failed to analyze claim'
-        throw new Error(errorMsg)
-      }
-
-      console.log('[AI Analyze Claim] Analysis received successfully')
-      setAiAnalysis(data)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      console.error('[AI Analyze Claim] Error:', errorMessage)
-      setError(`Failed to analyze claim: ${errorMessage}`)
-    } finally {
-      setAiAnalyzing(false)
-    }
-  }
-
-  const handleGenerateAppealLetter = async () => {
-    if (!claim || !claim.treatment || !claim.denialReason) {
-      setError('Cannot generate appeal letter without denial information')
-      return
-    }
-
-    setGeneratingAppeal(true)
-    setError('')
-
-    try {
-      console.log('[AI Appeal Letter] Generating appeal letter...')
-      const response = await fetch('/api/ai/generate-appeal-letter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patientName: `${claim.patient.firstName} ${claim.patient.lastName}`,
-          claimNumber: claim.claimNumber,
-          treatmentCode: claim.treatment.treatmentCode,
-          treatmentName: claim.treatment.treatmentName,
-          denialReason: claim.denialReason,
-          claimedAmount: claim.claimedAmount,
-          insuranceProvider: claim.insuranceProvider,
-          dateOfService: claim.submittedDate || new Date().toISOString(),
-          clinicalJustification: claim.notes || aiAnalysis?.medicalNecessityStatement || '',
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to generate appeal letter')
-      }
-
-      const data = await response.json()
-      setAppealLetter(data.appealLetter)
-    } catch (error) {
-      console.error('[AI Appeal Letter] Error:', error)
-      setError('Failed to generate appeal letter. Please try again.')
-    } finally {
-      setGeneratingAppeal(false)
-    }
-  }
+  const handleGenerateAppealLetter = () => openAI('generate-appeal-letter', {sourcePatientId:claim?.patient?.id,sourceClaimId:String(params.id)})
 
   const getRiskColor = (risk: string) => {
     switch (risk.toLowerCase()) {
@@ -265,7 +185,7 @@ export default function ClaimDetailPage() {
           </Box>
         </Box>
         <Box display="flex" alignItems="center" gap={2}>
-          <Button
+          <Box sx={{minWidth:0}}><Button
             variant="outlined"
             startIcon={aiAnalyzing ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
             onClick={handleAnalyzeClaim}
@@ -273,7 +193,7 @@ export default function ClaimDetailPage() {
             color="secondary"
           >
             {aiAnalyzing ? 'Analyzing...' : 'AI Analyze Claim'}
-          </Button>
+          </Button><DentalAIPresetButtons tool="analyze-claim" input={{sourcePatientId:claim?.patient?.id,sourceClaimId:String(params.id)}} disabled={aiAnalyzing}/></Box>
           <Chip
             label={claim.status.replace('_', ' ')}
             color={getStatusColor(claim.status)}
@@ -621,7 +541,7 @@ export default function ClaimDetailPage() {
                   <Typography variant="h6">
                     Denial Reason
                   </Typography>
-                  <Button
+                  <Box sx={{minWidth:0}}><Button
                     variant="outlined"
                     size="small"
                     startIcon={generatingAppeal ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
@@ -630,7 +550,7 @@ export default function ClaimDetailPage() {
                     color="secondary"
                   >
                     {generatingAppeal ? 'Generating...' : 'AI Generate Appeal Letter'}
-                  </Button>
+                  </Button><DentalAIPresetButtons tool="generate-appeal-letter" input={{sourcePatientId:claim?.patient?.id,sourceClaimId:String(params.id)}}/></Box>
                 </Box>
                 <Divider sx={{ mb: 2 }} />
                 <Alert severity="error" sx={{ whiteSpace: 'pre-wrap' }}>

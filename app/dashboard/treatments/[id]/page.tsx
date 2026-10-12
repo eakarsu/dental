@@ -1,5 +1,8 @@
 'use client'
+import DentalAIPresetButtons from '@/components/DentalAIPresetButtons'
 
+
+import { useDentalAILauncher } from '@/lib/dental-ai-launcher'
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
@@ -56,6 +59,7 @@ interface Treatment {
 }
 
 export default function TreatmentDetailPage() {
+  const openAI = useDentalAILauncher()
   const params = useParams()
   const router = useRouter()
   const [treatment, setTreatment] = useState<Treatment | null>(null)
@@ -103,75 +107,9 @@ export default function TreatmentDetailPage() {
     }
   }
 
-  const handleGetPaymentPlans = async () => {
-    if (!treatment) return
+  const handleGetPaymentPlans = () => openAI('payment-plan-recommendation', {sourcePatientId:treatment?.patient?.id,sourceTreatmentId:String(params.id)})
 
-    setLoadingPlans(true)
-    try {
-      console.log('[Payment Plans] Requesting payment plans for amount:', treatment.estimatedCost)
-      const response = await fetch('/api/ai/payment-plan-recommendation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          totalAmount: Number(treatment.estimatedCost),
-          patientName: `${treatment.patient.firstName} ${treatment.patient.lastName}`,
-        }),
-      })
-
-      console.log('[Payment Plans] Response status:', response.status)
-      const data = await response.json()
-
-      if (!response.ok) {
-        const errorMsg = data.error || data.details || 'Failed to get payment plans'
-        throw new Error(errorMsg)
-      }
-
-      setPaymentPlans(data)
-    } catch (error) {
-      console.error('[Payment Plans] Error:', error)
-      alert(`Error loading payment plans: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    } finally {
-      setLoadingPlans(false)
-    }
-  }
-
-  const handleTranslateJargon = async () => {
-    if (!treatment) return
-
-    setTranslating(true)
-    setError('')
-
-    try {
-      console.log('[AI Translate] Translating treatment details...')
-      const textToTranslate = `${treatment.treatmentName}: ${treatment.description || 'No description available'}`
-
-      const response = await fetch('/api/ai/translate-jargon', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dentalText: textToTranslate,
-          includeDiagrams: false,
-        }),
-      })
-
-      console.log('[AI Translate] Response status:', response.status)
-      const data = await response.json()
-
-      if (!response.ok) {
-        const errorMsg = data.error || data.details || 'Failed to translate'
-        throw new Error(errorMsg)
-      }
-
-      setTranslation(data.patientFriendlyText)
-      setShowTranslationDialog(true)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      console.error('[AI Translate] Error:', errorMessage)
-      alert(`Failed to translate: ${errorMessage}`)
-    } finally {
-      setTranslating(false)
-    }
-  }
+  const handleTranslateJargon = () => openAI('translate-jargon', {sourcePatientId:treatment?.patient?.id,sourceTreatmentId:String(params.id)})
 
   if (loading) {
     return (
@@ -287,14 +225,14 @@ export default function TreatmentDetailPage() {
                   Treatment Details
                 </Typography>
                 <Tooltip title="Translate to patient-friendly language">
-                  <IconButton
+                  <Box sx={{minWidth:0}}><IconButton
                     onClick={handleTranslateJargon}
                     disabled={translating}
                     color="secondary"
                     size="small"
                   >
                     {translating ? <CircularProgress size={20} /> : <TranslateIcon />}
-                  </IconButton>
+                  </IconButton><DentalAIPresetButtons tool="translate-jargon" input={{sourcePatientId:treatment?.patient?.id,sourceTreatmentId:String(params.id)}}/></Box>
                 </Tooltip>
               </Box>
               <Divider sx={{ mb: 2 }} />
@@ -399,7 +337,7 @@ export default function TreatmentDetailPage() {
                 <Typography variant="h6">
                   AI Payment Plan Recommendations
                 </Typography>
-                <Button
+                <Box sx={{minWidth:0}}><Button
                   variant="outlined"
                   size="small"
                   startIcon={loadingPlans ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
@@ -408,7 +346,7 @@ export default function TreatmentDetailPage() {
                   color="secondary"
                 >
                   {loadingPlans ? 'Generating...' : 'Get Payment Plans'}
-                </Button>
+                </Button><DentalAIPresetButtons tool="payment-plan-recommendation" input={{sourcePatientId:treatment?.patient?.id,sourceTreatmentId:String(params.id)}} disabled={loadingPlans}/></Box>
               </Box>
               <Divider sx={{ mb: 2 }} />
               {paymentPlans ? (

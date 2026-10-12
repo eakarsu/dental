@@ -17,7 +17,9 @@
     "test:e2e:clinical": "playwright test tests/clinical-review.spec.ts --project=chromium",
     "typecheck": "tsc --noEmit",
     "verify": "npm run db:generate && npm run typecheck && npm test && npm run lint && npm run build",
-    "db:deploy": "prisma migrate deploy"
+    "db:deploy": "prisma migrate deploy",
+    "demo:seed:min": "node scripts/seed-demo-data.mjs --apply",
+    "demo:seed:check": "node scripts/seed-demo-data.mjs --dry-run"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

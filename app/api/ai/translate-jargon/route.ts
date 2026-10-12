@@ -1,3 +1,4 @@
+import { withDentalAI } from '@/lib/dental-ai-runtime'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { callOpenRouter } from '@/lib/openrouter'
@@ -8,7 +9,7 @@ const requestSchema = z.object({
   includeDiagrams: z.boolean().optional(),
 })
 
-export async function POST(request: NextRequest) {
+async function nativePOST(request: NextRequest) {
   try {
     const session = await auth()
     if (!session) {
@@ -57,10 +58,12 @@ Now translate the provided text:`
         { status: 400 }
       )
     }
-    console.error('Error translating jargon:', error)
+
     return NextResponse.json(
       { error: 'Failed to translate jargon' },
       { status: 500 }
     )
   }
 }
+
+export const POST = withDentalAI('translate-jargon', nativePOST)

@@ -23,6 +23,11 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) })
 
 async function main() {
+  const existing = await prisma.user.findUnique({ where: { email: adminEmail } })
+  if (existing) {
+    console.log("Existing administrator preserved; credentials, role, clinic and active status unchanged.")
+    return
+  }
   const clinic = await prisma.clinic.upsert({
     where: { id: 'runtime-acceptance-clinic' },
     update: {},
@@ -30,7 +35,7 @@ async function main() {
   })
   await prisma.user.upsert({
     where: { email: adminEmail },
-    update: { password: await bcrypt.hash(adminPassword, 10), firstName, lastName, role: UserRole.ADMIN, clinicId: clinic.id, isActive: true },
+    update: {},
     create: {
       email: adminEmail,
       password: await bcrypt.hash(adminPassword, 10),

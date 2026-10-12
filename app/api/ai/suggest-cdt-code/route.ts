@@ -1,3 +1,4 @@
+import { withDentalAI } from '@/lib/dental-ai-runtime'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { callOpenRouter } from '@/lib/openrouter'
@@ -9,7 +10,7 @@ const requestSchema = z.object({
   toothNumber: z.string().optional().nullable(),
 })
 
-export async function POST(request: NextRequest) {
+async function nativePOST(request: NextRequest) {
   try {
     const session = await auth()
     if (!session) {
@@ -40,7 +41,6 @@ Format your response as JSON with this structure:
   ]
 }`
 
-    console.log('[suggest-cdt-code] Calling OpenRouter API...')
     const response = await callOpenRouter([
       { role: 'system', content: 'You are a JSON-generating API. You MUST respond with ONLY valid, well-formed JSON. NO additional text, explanations, or markdown. You are an expert in dental CDT coding.' },
       { role: 'user', content: prompt }
@@ -49,28 +49,29 @@ Format your response as JSON with this structure:
     const parseResult = extractAndParseJSON(response, '[suggest-cdt-code]')
 
     if (parseResult.success) {
-      console.log('[suggest-cdt-code] Successfully parsed suggestion')
+
       return NextResponse.json(parseResult.data)
     }
 
-    console.error('[suggest-cdt-code] Failed to parse AI response:', parseResult.error)
     return NextResponse.json({
       error: 'Failed to parse AI response',
       details: parseResult.error
     }, { status: 500 })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('[suggest-cdt-code] Validation error:', error.issues)
+
       return NextResponse.json(
         { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }
-    console.error('[suggest-cdt-code] Error suggesting CDT code:', error)
-    console.error('[suggest-cdt-code] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+
+
     return NextResponse.json(
       { error: 'Failed to suggest CDT code' },
       { status: 500 }
     )
   }
 }
+
+export const POST = withDentalAI('suggest-cdt-code', nativePOST)

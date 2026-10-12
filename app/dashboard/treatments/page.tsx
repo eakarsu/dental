@@ -1,8 +1,12 @@
 'use client'
+import DentalAIPresetButtons from '@/components/DentalAIPresetButtons'
 
-import { useState, useEffect } from 'react'
+
+import { useDentalAILauncher } from '@/lib/dental-ai-launcher'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
+  Alert,
   Box,
   Button,
   Typography,
@@ -25,9 +29,12 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import { format } from 'date-fns'
 
 export default function TreatmentsPage() {
+  const openAI = useDentalAILauncher()
   const router = useRouter()
-  const [treatments, setTreatments] = useState([])
+  const [treatments, setTreatments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const loadVersion = useRef(0)
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false)
   const [treatmentSummary, setTreatmentSummary] = useState('')
   const [generatingSummary, setGeneratingSummary] = useState(false)
@@ -37,16 +44,20 @@ export default function TreatmentsPage() {
   }, [])
 
   const fetchTreatments = async () => {
+    const version = ++loadVersion.current
+    setLoading(true)
+    setLoadError('')
     try {
-      const response = await fetch('/api/treatments')
-      if (response.ok) {
-        const data = await response.json()
-        setTreatments(data || [])
-      }
+      const response = await fetch('/api/treatments', { cache: 'no-store' })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Unable to load treatments')
+      const rows = body
+      if (!Array.isArray(rows)) throw new Error('Unable to load treatments: invalid response')
+      if (version === loadVersion.current) setTreatments(rows)
     } catch (error) {
-      console.error('Error fetching treatments:', error)
+      if (version === loadVersion.current) setLoadError(error instanceof Error ? error.message : 'Unable to load treatments')
     } finally {
-      setLoading(false)
+      if (version === loadVersion.current) setLoading(false)
     }
   }
 
@@ -72,50 +83,7 @@ export default function TreatmentsPage() {
     return (completed / items.length) * 100
   }
 
-  const handleGenerateTreatmentSummary = async () => {
-    if (treatments.length === 0) return
-
-    setGeneratingSummary(true)
-    setSummaryDialogOpen(true)
-
-    try {
-      // Get first patient's name if available
-      const firstPatient = treatments[0] as any
-      const patientName = firstPatient?.patient
-        ? `${firstPatient.patient.firstName} ${firstPatient.patient.lastName}`
-        : 'Patient'
-
-      const totalCost = treatments.reduce((sum: number, t: any) => sum + (t.estimatedCost || 0), 0)
-
-      const response = await fetch('/api/ai/treatment-plan-summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          treatments: treatments.map((t: any) => ({
-            treatmentCode: t.treatmentCode,
-            treatmentName: t.treatmentName,
-            toothNumber: t.toothNumber,
-            estimatedCost: t.estimatedCost,
-            description: t.description,
-          })),
-          patientName,
-          totalCost,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to generate summary')
-      }
-
-      const data = await response.json()
-      setTreatmentSummary(data.summary)
-    } catch (error) {
-      console.error('[Treatment Summary] Error:', error)
-      setTreatmentSummary('Failed to generate treatment plan summary. Please try again.')
-    } finally {
-      setGeneratingSummary(false)
-    }
-  }
+  const handleGenerateTreatmentSummary = () => openAI('treatment-plan-summary', {})
 
   const columns: GridColDef[] = [
     {
@@ -223,7 +191,7 @@ export default function TreatmentsPage() {
           Treatment Plans
         </Typography>
         <Box display="flex" gap={2}>
-          <Button
+          <Box sx={{minWidth:0}}><Button
             variant="outlined"
             startIcon={<AutoAwesomeIcon />}
             onClick={handleGenerateTreatmentSummary}
@@ -231,7 +199,7 @@ export default function TreatmentsPage() {
             color="secondary"
           >
             AI Summary
-          </Button>
+          </Button><DentalAIPresetButtons tool="treatment-plan-summary" input={{}}/></Box>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -242,15 +210,16 @@ export default function TreatmentsPage() {
         </Box>
       </Box>
 
-      <Paper sx={{ height: 600, width: '100%' }}>
+      {loadError && <Alert severity="error" sx={{ mb: 2 }} action={<Button color="inherit" onClick={fetchTreatments} disabled={loading}>Retry</Button>}>{loadError}</Alert>}
+      {!loadError && <Paper sx={{ height: 600, width: '100%' }}>
         <DataGrid
           rows={treatments}
           columns={columns}
           loading={loading}
-          pageSizeOptions={[10, 25, 50]}
+          pageSizeOptions={[15, 25, 50]}
           initialState={{
             pagination: {
-              paginationModel: { pageSize: 10 },
+              paginationModel: { pageSize: 15 },
             },
           }}
           disableRowSelectionOnClick
@@ -260,7 +229,7 @@ export default function TreatmentsPage() {
             },
           }}
         />
-      </Paper>
+      </Paper>}
 
       {/* Treatment Plan Summary Dialog */}
       <Dialog

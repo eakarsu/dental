@@ -1,5 +1,8 @@
 'use client'
+import DentalAIPresetButtons from '@/components/DentalAIPresetButtons'
 
+
+import { useDentalAILauncher } from '@/lib/dental-ai-launcher'
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
@@ -61,6 +64,7 @@ interface RevenueForecast {
 }
 
 export default function DashboardPage() {
+  const openAI = useDentalAILauncher()
   const { data: session, status } = useSession()
   const router = useRouter()
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -104,51 +108,9 @@ export default function DashboardPage() {
     }
   }
 
-  const fetchAiInsights = async () => {
-    setAiLoading(true)
-    try {
-      console.log('[AI Insights] Fetching insights...')
-      const response = await fetch('/api/ai/dashboard-insights')
-      if (!response.ok) {
-        throw new Error('Failed to fetch AI insights')
-      }
-      const data = await response.json()
-      setAiInsights(data.insights || [])
-    } catch (error) {
-      console.error('[AI Insights] Error:', error)
-    } finally {
-      setAiLoading(false)
-    }
-  }
+  const fetchAiInsights = () => openAI('dashboard-insights', {})
 
-  const fetchRevenueForecast = async () => {
-    setForecastLoading(true)
-    setForecastError(null)
-    try {
-      console.log('[Revenue Forecast] Fetching forecast for', forecastMonths, 'months...')
-      const response = await fetch('/api/ai/revenue-forecast', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ months: forecastMonths }),
-      })
-
-      const data = await response.json()
-      console.log('[Revenue Forecast] Response status:', response.status)
-
-      if (!response.ok) {
-        const errorMsg = data.details || data.error || 'Failed to fetch revenue forecast'
-        throw new Error(errorMsg)
-      }
-
-      setRevenueForecast(data)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      console.error('[Revenue Forecast] Error:', errorMessage)
-      setForecastError(errorMessage)
-    } finally {
-      setForecastLoading(false)
-    }
-  }
+  const fetchRevenueForecast = () => openAI('revenue-forecast', {months:forecastMonths})
 
   const getInsightIcon = (type: string) => {
     switch (type) {
@@ -196,7 +158,7 @@ export default function DashboardPage() {
               AI Practice Insights
             </Typography>
           </Box>
-          <Button
+          <Box sx={{minWidth:0}}><Button
             variant="outlined"
             size="small"
             startIcon={aiLoading ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
@@ -205,7 +167,7 @@ export default function DashboardPage() {
             color="secondary"
           >
             {aiLoading ? 'Generating...' : 'Generate Insights'}
-          </Button>
+          </Button><DentalAIPresetButtons tool="dashboard-insights" input={{}} disabled={aiLoading}/></Box>
         </Box>
 
         {aiInsights.length > 0 ? (
@@ -272,7 +234,7 @@ export default function DashboardPage() {
               <MenuItem value={6}>6 Months</MenuItem>
               <MenuItem value={12}>12 Months</MenuItem>
             </Select>
-            <Button
+            <Box sx={{minWidth:0}}><Button
               variant="outlined"
               size="small"
               startIcon={forecastLoading ? <CircularProgress size={16} /> : <TrendingUpIcon />}
@@ -281,7 +243,7 @@ export default function DashboardPage() {
               color="success"
             >
               {forecastLoading ? 'Generating...' : 'Generate Forecast'}
-            </Button>
+            </Button><DentalAIPresetButtons tool="revenue-forecast" input={{months:forecastMonths}} disabled={forecastLoading}/></Box>
           </Box>
         </Box>
 

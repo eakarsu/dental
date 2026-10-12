@@ -1,3 +1,4 @@
+import { withDentalAI } from '@/lib/dental-ai-runtime'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { callOpenRouter } from '@/lib/openrouter'
@@ -15,7 +16,7 @@ const requestSchema = z.object({
   patientId: z.string().optional(),
 })
 
-export async function POST(request: NextRequest) {
+async function nativePOST(request: NextRequest) {
   try {
     const session = await auth()
     if (!session) {
@@ -156,8 +157,7 @@ Return ONLY valid JSON.`
         }
       }
 
-      console.error(`[predict-no-show] Failed to parse prediction for appointment ${apt.id}:`, parseResult.error)
-      return null
+      throw new Error('Incomplete prediction response')
     }))
 
     return NextResponse.json({
@@ -172,10 +172,12 @@ Return ONLY valid JSON.`
         { status: 400 }
       )
     }
-    console.error('Error predicting no-shows:', error)
+
     return NextResponse.json(
       { error: 'Failed to predict no-shows' },
       { status: 500 }
     )
   }
 }
+
+export const POST = withDentalAI('predict-no-show', nativePOST)

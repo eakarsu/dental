@@ -1,3 +1,4 @@
+import { withDentalAI } from '@/lib/dental-ai-runtime'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { callOpenRouter } from '@/lib/openrouter'
@@ -13,7 +14,7 @@ const requestSchema = z.object({
   preferredTimeOfDay: z.enum(['morning', 'afternoon', 'evening', 'any']).optional(),
 })
 
-export async function POST(request: NextRequest) {
+async function nativePOST(request: NextRequest) {
   try {
     const session = await auth()
     if (!session) {
@@ -114,7 +115,6 @@ Provide 3-5 recommended slots. Consider:
 
 Return ONLY valid JSON.`
 
-    console.log('[smart-scheduling] Calling OpenRouter API...')
     const response = await callOpenRouter([
       { role: 'system', content: 'You are a JSON-generating API. You MUST respond with ONLY valid, well-formed JSON. NO additional text, explanations, or markdown. You are an intelligent scheduling AI that optimizes appointment times based on patient behavior patterns and practice efficiency.' },
       { role: 'user', content: prompt }
@@ -123,7 +123,7 @@ Return ONLY valid JSON.`
     const parseResult = extractAndParseJSON(response, '[smart-scheduling]')
 
     if (parseResult.success) {
-      console.log('[smart-scheduling] Successfully parsed recommendations')
+
       return NextResponse.json({
         ...parseResult.data,
         treatmentType: data.treatmentType,
@@ -131,7 +131,6 @@ Return ONLY valid JSON.`
       })
     }
 
-    console.error('[smart-scheduling] Failed to parse AI response:', parseResult.error)
     return NextResponse.json({
       error: 'Failed to parse AI response',
       details: parseResult.error
@@ -143,10 +142,12 @@ Return ONLY valid JSON.`
         { status: 400 }
       )
     }
-    console.error('Error generating scheduling recommendations:', error)
+
     return NextResponse.json(
       { error: 'Failed to generate scheduling recommendations' },
       { status: 500 }
     )
   }
 }
+
+export const POST = withDentalAI('smart-scheduling', nativePOST)

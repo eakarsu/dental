@@ -1,0 +1,18 @@
+.dental-ai-report { border:1px solid #d6e0eb; border-radius:14px; background:#fff; overflow:hidden; margin:20px 0; color:#243447; box-shadow:0 6px 24px #17324d0b }
+.dental-ai-report>header { padding:20px 24px; background:#f5f8fc; border-bottom:1px solid #d6e0eb }
+.dental-ai-report>header>p { color:#58718a; font-size:12px; text-transform:uppercase; letter-spacing:.12em; margin:0 }
+.dental-ai-report h3 { font-size:22px; margin:8px 0 0 }
+.dental-ai-report>div { padding:24px; line-height:1.75; font-size:14px }
+.dental-ai-report section { margin:18px 0 }
+.dental-ai-report h4 { margin:16px 0 8px; font-size:16px; color:#17324d }
+.dental-ai-report p { white-space:pre-wrap; overflow-wrap:anywhere }
+.dental-ai-report table { border-collapse:collapse; width:100%; text-align:left; font-size:14px }
+.dental-ai-report th { background:#f4f7fb; color:#17324d }
+.dental-ai-report th,.dental-ai-report td { padding:12px; border-bottom:1px solid #e3eaf2; vertical-align:top; overflow-wrap:anywhere }
+.dental-ai-report table>tbody>tr:last-child td { border-bottom:none }
+.dental-ai-report div:has(>table) { overflow-x:auto }
+.dental-ai-report li { margin:8px 0 }
+.dental-ai-report footer { padding:16px 24px; border-top:1px solid #d6e0eb; background:#fbfcfe }
+.dental-ai-report footer>div { display:flex; gap:10px; flex-wrap:wrap }
+.dental-ai-report button { font:inherit; cursor:pointer; color:#174a77; padding:8px 14px; border:1px solid #b7cbdf; border-radius:8px; background:white }
+.dental-ai-report footer p { font-size:12px }

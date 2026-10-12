@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
+  Alert,
   Box,
   Button,
   Typography,
@@ -19,8 +20,10 @@ import { format } from 'date-fns'
 
 export default function ClaimsPage() {
   const router = useRouter()
-  const [claims, setClaims] = useState([])
+  const [claims, setClaims] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const loadVersion = useRef(0)
   const [statusFilter, setStatusFilter] = useState('ALL')
 
   useEffect(() => {
@@ -28,19 +31,20 @@ export default function ClaimsPage() {
   }, [statusFilter])
 
   const fetchClaims = async () => {
+    const version = ++loadVersion.current
+    setLoading(true)
+    setLoadError('')
     try {
-      const url = statusFilter === 'ALL'
-        ? '/api/claims'
-        : `/api/claims?status=${statusFilter}`
-      const response = await fetch(url)
-      if (response.ok) {
-        const data = await response.json()
-        setClaims(data || [])
-      }
+      const response = await fetch(statusFilter === 'ALL' ? '/api/claims' : `/api/claims?status=${encodeURIComponent(statusFilter)}`, { cache: 'no-store' })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Unable to load claims')
+      const rows = body
+      if (!Array.isArray(rows)) throw new Error('Unable to load claims: invalid response')
+      if (version === loadVersion.current) setClaims(rows)
     } catch (error) {
-      console.error('Error fetching claims:', error)
+      if (version === loadVersion.current) setLoadError(error instanceof Error ? error.message : 'Unable to load claims')
     } finally {
-      setLoading(false)
+      if (version === loadVersion.current) setLoading(false)
     }
   }
 
@@ -184,15 +188,16 @@ export default function ClaimsPage() {
         </TextField>
       </Paper>
 
-      <Paper sx={{ height: 600, width: '100%' }}>
+      {loadError && <Alert severity="error" sx={{ mb: 2 }} action={<Button color="inherit" onClick={fetchClaims} disabled={loading}>Retry</Button>}>{loadError}</Alert>}
+      {!loadError && <Paper sx={{ height: 600, width: '100%' }}>
         <DataGrid
           rows={claims}
           columns={columns}
           loading={loading}
-          pageSizeOptions={[10, 25, 50]}
+          pageSizeOptions={[15, 25, 50]}
           initialState={{
             pagination: {
-              paginationModel: { pageSize: 10 },
+              paginationModel: { pageSize: 15 },
             },
             sorting: {
               sortModel: [{ field: 'submittedDate', sort: 'desc' }],
@@ -205,7 +210,7 @@ export default function ClaimsPage() {
             },
           }}
         />
-      </Paper>
+      </Paper>}
     </Box>
   )
 }

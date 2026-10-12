@@ -1,5 +1,8 @@
 'use client'
+import DentalAIPresetButtons from '@/components/DentalAIPresetButtons'
 
+
+import { useDentalAILauncher } from '@/lib/dental-ai-launcher'
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
@@ -71,6 +74,7 @@ interface Patient {
 }
 
 export default function PatientDetailPage() {
+  const openAI = useDentalAILauncher()
   const params = useParams()
   const router = useRouter()
   const [patient, setPatient] = useState<Patient | null>(null)
@@ -128,171 +132,11 @@ export default function PatientDetailPage() {
     return age
   }
 
-  const handleRiskAssessment = async () => {
-    if (!patient || !plannedProcedure) {
-      setError('Please enter a planned procedure')
-      return
-    }
+  const handleRiskAssessment = () => openAI('risk-assessment', {sourcePatientId:String(params.id),plannedProcedure})
 
-    setRiskAssessing(true)
-    setError('')
+  const handleGetRecommendations = () => openAI('treatment-recommendations', {sourcePatientId:String(params.id),diagnosis,symptoms:symptoms.split(',').map(value=>value.trim()).filter(Boolean)})
 
-    try {
-      const age = calculateAge(patient.dateOfBirth)
-
-      // Handle medicalHistory as either JSON object or string
-      let medicalHistory: string[] = []
-      let medications: string[] = []
-      let allergies: string[] = []
-
-      if (typeof patient.medicalHistory === 'object' && patient.medicalHistory) {
-        // Extract from JSON object
-        const medHistory = patient.medicalHistory as any
-        medicalHistory = medHistory.conditions ? (Array.isArray(medHistory.conditions) ? medHistory.conditions : [medHistory.conditions]) : []
-        medications = medHistory.medications ? (Array.isArray(medHistory.medications) ? medHistory.medications : [medHistory.medications]) : []
-        allergies = medHistory.allergies ? (Array.isArray(medHistory.allergies) ? medHistory.allergies : [medHistory.allergies]) : []
-      } else {
-        // Handle as strings
-        medicalHistory = patient.medicalHistory && typeof patient.medicalHistory === 'string'
-          ? patient.medicalHistory.split(',').map(s => s.trim())
-          : []
-        medications = patient.medications && typeof patient.medications === 'string'
-          ? patient.medications.split(',').map(s => s.trim())
-          : []
-        allergies = patient.allergies && typeof patient.allergies === 'string'
-          ? patient.allergies.split(',').map(s => s.trim())
-          : []
-      }
-
-      const response = await fetch('/api/ai/risk-assessment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patientAge: age || 30,
-          medicalHistory,
-          medications,
-          allergies,
-          plannedProcedure,
-        }),
-      })
-
-      console.log('[AI Risk Assessment] Response status:', response.status)
-      const data = await response.json()
-
-      if (!response.ok) {
-        const errorMsg = data.error || data.details || 'Failed to assess risk'
-        throw new Error(errorMsg)
-      }
-
-      setRiskAssessment(data)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      console.error('[AI Risk Assessment] Error:', errorMessage)
-      setError(`Failed to assess risk: ${errorMessage}`)
-    } finally {
-      setRiskAssessing(false)
-    }
-  }
-
-  const handleGetRecommendations = async () => {
-    if (!diagnosis) {
-      setError('Please enter a diagnosis')
-      return
-    }
-
-    setRecommendationsLoading(true)
-    setError('')
-
-    try {
-      const age = calculateAge(patient?.dateOfBirth || null)
-
-      // Handle medicalHistory as either JSON object or string
-      let medicalHistory: string[] = []
-      if (typeof patient?.medicalHistory === 'object' && patient.medicalHistory) {
-        const medHistory = patient.medicalHistory as any
-        medicalHistory = medHistory.conditions ? (Array.isArray(medHistory.conditions) ? medHistory.conditions : [medHistory.conditions]) : []
-      } else if (patient?.medicalHistory && typeof patient.medicalHistory === 'string') {
-        medicalHistory = patient.medicalHistory.split(',').map(s => s.trim())
-      }
-
-      const symptomsList = symptoms ? symptoms.split(',').map(s => s.trim()) : []
-
-      const response = await fetch('/api/ai/treatment-recommendations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          diagnosis,
-          symptoms: symptomsList,
-          patientAge: age,
-          medicalHistory,
-        }),
-      })
-
-      console.log('[AI Treatment Recommendations] Response status:', response.status)
-      const data = await response.json()
-
-      if (!response.ok) {
-        const errorMsg = data.error || data.details || 'Failed to get recommendations'
-        throw new Error(errorMsg)
-      }
-
-      setRecommendations(data)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      console.error('[AI Treatment Recommendations] Error:', errorMessage)
-      setError(`Failed to get recommendations: ${errorMessage}`)
-    } finally {
-      setRecommendationsLoading(false)
-    }
-  }
-
-  const handleGenerateSummary = async () => {
-    if (!patient || patient.treatments.length === 0) {
-      setError('No treatments found for this patient')
-      return
-    }
-
-    setSummaryLoading(true)
-    setError('')
-
-    try {
-      console.log('[AI Treatment Plan Summary] Generating summary...')
-      const totalCost = patient.treatments.reduce((sum, t) => sum + Number(t.estimatedCost), 0)
-
-      const response = await fetch('/api/ai/treatment-plan-summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          treatments: patient.treatments.map(t => ({
-            treatmentCode: t.treatmentCode,
-            treatmentName: t.treatmentName,
-            toothNumber: t.toothNumber,
-            estimatedCost: Number(t.estimatedCost),
-            description: t.description,
-          })),
-          patientName: `${patient.firstName} ${patient.lastName}`,
-          totalCost,
-        }),
-      })
-
-      console.log('[AI Treatment Plan Summary] Response status:', response.status)
-      const data = await response.json()
-
-      if (!response.ok) {
-        const errorMsg = data.error || data.details || 'Failed to generate summary'
-        throw new Error(errorMsg)
-      }
-
-      setTreatmentSummary(data.summary)
-      setShowSummaryDialog(true)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      console.error('[AI Treatment Plan Summary] Error:', errorMessage)
-      setError(`Failed to generate summary: ${errorMessage}`)
-    } finally {
-      setSummaryLoading(false)
-    }
-  }
+  const handleGenerateSummary = () => openAI('treatment-plan-summary', {sourcePatientId:String(params.id)})
 
   const getRiskColor = (risk: string) => {
     switch (risk?.toLowerCase()) {
@@ -458,7 +302,7 @@ export default function PatientDetailPage() {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Generate patient-friendly summary
               </Typography>
-              <Button
+              <Box sx={{minWidth:0}}><Button
                 fullWidth
                 variant="outlined"
                 color="secondary"
@@ -467,7 +311,7 @@ export default function PatientDetailPage() {
                 startIcon={summaryLoading ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
               >
                 {summaryLoading ? 'Generating...' : 'Generate Summary'}
-              </Button>
+              </Button><DentalAIPresetButtons tool="treatment-plan-summary" input={{sourcePatientId:String(params.id)}} disabled={summaryLoading}/></Box>
             </CardContent>
           </Card>
         </Grid>
@@ -880,7 +724,7 @@ export default function PatientDetailPage() {
           }}>
             Close
           </Button>
-          <Button
+          <Box sx={{minWidth:0}}><Button
             variant="contained"
             onClick={handleRiskAssessment}
             disabled={riskAssessing || !plannedProcedure}
@@ -888,7 +732,7 @@ export default function PatientDetailPage() {
             color="secondary"
           >
             {riskAssessing ? 'Assessing...' : 'Assess Risk'}
-          </Button>
+          </Button><DentalAIPresetButtons tool="risk-assessment" input={{sourcePatientId:String(params.id),plannedProcedure}} disabled={riskAssessing}/></Box>
         </DialogActions>
       </Dialog>
 
@@ -999,7 +843,7 @@ export default function PatientDetailPage() {
           }}>
             Close
           </Button>
-          <Button
+          <Box sx={{minWidth:0}}><Button
             variant="contained"
             onClick={handleGetRecommendations}
             disabled={recommendationsLoading || !diagnosis}
@@ -1007,7 +851,7 @@ export default function PatientDetailPage() {
             color="secondary"
           >
             {recommendationsLoading ? 'Generating...' : 'Get Recommendations'}
-          </Button>
+          </Button><DentalAIPresetButtons tool="treatment-recommendations" input={{sourcePatientId:String(params.id),diagnosis,symptoms:symptoms.split(',').map(value=>value.trim()).filter(Boolean)}} disabled={recommendationsLoading}/></Box>
         </DialogActions>
       </Dialog>
 

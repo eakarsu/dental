@@ -1,3 +1,4 @@
+import { withDentalAI } from '@/lib/dental-ai-runtime'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { callOpenRouter } from '@/lib/openrouter'
@@ -12,7 +13,7 @@ const requestSchema = z.object({
   patientHistory: z.string().optional(),
 })
 
-export async function POST(request: NextRequest) {
+async function nativePOST(request: NextRequest) {
   try {
     const session = await auth()
     if (!session) {
@@ -56,10 +57,12 @@ Format the notes professionally as they would appear in a dental record. Keep it
         { status: 400 }
       )
     }
-    console.error('Error generating notes:', error)
+
     return NextResponse.json(
       { error: 'Failed to generate notes' },
       { status: 500 }
     )
   }
 }
+
+export const POST = withDentalAI('generate-notes', nativePOST)
