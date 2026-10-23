@@ -26,6 +26,7 @@ export default function RootLayout({
         <meta name="emotion-insertion-point" content="" />
       </head>
       <body className={roboto.className}>
+<script src="/feature-pack/feature-pack.js" defer />
         <Providers>{children}</Providers>
       </body>
     </html>
